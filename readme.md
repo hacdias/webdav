@@ -21,3 +21,5 @@ users:
 ```
 
 You can specify the path to the configuration file using the `--config` flag. By default, it will search for a `config.{yaml,json}` file on your current working directory.
+
+Download it [here](https://github.com/hacdias/webdav/releases).
