@@ -6,8 +6,6 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mholt/caddy/caddyhttp/httpserver"
-
 	"golang.org/x/net/webdav"
 )
 
@@ -23,7 +21,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := c.User
 
 	// Gets the correct user for this request.
-	username, ok := r.Context().Value(httpserver.RemoteUserCtxKey).(string)
+	username, _, ok := r.BasicAuth()
 	if ok {
 		if user, ok := c.Users[username]; ok {
 			u = user
