@@ -161,7 +161,6 @@ func parseConfig() *cfg {
 		port: data.Port,
 		auth: map[string]string{},
 		webdav: &webdav.Config{
-			BaseURL: "",
 			User: &webdav.User{
 				Scope:  data.Scope,
 				Modify: data.Modify,

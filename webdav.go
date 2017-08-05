@@ -12,8 +12,7 @@ import (
 // Config is the configuration of a WebDAV instance.
 type Config struct {
 	*User
-	BaseURL string
-	Users   map[string]*User
+	Users map[string]*User
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
@@ -27,9 +26,6 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			u = user
 		}
 	}
-
-	// Remove the BaseURL from the url path.
-	r.URL.Path = strings.TrimPrefix(r.URL.Path, c.BaseURL)
 
 	// Checks for user permissions relatively to this PATH.
 	if !u.Allowed(r.URL.Path) {
