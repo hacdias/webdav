@@ -19,7 +19,14 @@ import (
 
 var (
 	config         string
-	defaultConfigs = []string{"config.json", "config.yaml", "config.yml"}
+	defaultConfigs = []string{
+		"config.json",
+		"config.yaml",
+		"config.yml",
+		"/etc/webdav/config.json",
+		"/etc/webdav/config.yaml",
+		"/etc/webdav/config.yml",
+	}
 )
 
 func init() {
