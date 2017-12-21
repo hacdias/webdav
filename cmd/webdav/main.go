@@ -133,24 +133,27 @@ func getConfig() []byte {
 }
 
 type cfg struct {
-	webdav *webdav.Config
-	port   string
-	auth   map[string]string
+	webdav  *webdav.Config
+	address string
+	port    string
+	auth    map[string]string
 }
 
 func parseConfig() *cfg {
 	file := getConfig()
 
 	data := struct {
-		Port   string                   `json:"port" yaml:"port"`
-		Scope  string                   `json:"scope" yaml:"scope"`
-		Modify bool                     `json:"modify" yaml:"modify"`
-		Rules  []map[string]interface{} `json:"rules" yaml:"rules"`
-		Users  []map[string]interface{} `json:"users" yaml:"users"`
+		Address string                   `json:"address" yaml:"address"`
+		Port    string                   `json:"port" yaml:"port"`
+		Scope   string                   `json:"scope" yaml:"scope"`
+		Modify  bool                     `json:"modify" yaml:"modify"`
+		Rules   []map[string]interface{} `json:"rules" yaml:"rules"`
+		Users   []map[string]interface{} `json:"users" yaml:"users"`
 	}{
-		Port:   "0",
-		Scope:  "./",
-		Modify: true,
+		Address: "0.0.0.0",
+		Port:    "0",
+		Scope:   "./",
+		Modify:  true,
 	}
 
 	var err error
@@ -165,8 +168,9 @@ func parseConfig() *cfg {
 	}
 
 	config := &cfg{
-		port: data.Port,
-		auth: map[string]string{},
+		address: data.Address,
+		port:    data.Port,
+		auth:    map[string]string{},
 		webdav: &webdav.Config{
 			User: &webdav.User{
 				Scope:  data.Scope,
@@ -224,7 +228,7 @@ func main() {
 	handler := basicAuth(cfg)
 
 	// Builds the address and a listener.
-	laddr := ":" + cfg.port
+	laddr := cfg.address + ":" + cfg.port
 	listener, err := net.Listen("tcp", laddr)
 	if err != nil {
 		log.Fatal(err)
