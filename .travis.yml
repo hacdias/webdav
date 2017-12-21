@@ -12,7 +12,7 @@ install:
   - gometalinter --install
 
 script:
-  - gometalinter
+  - gometalinter --disable-all -E vet -E gofmt -E misspell -E ineffassign -E goimports -E deadcode --tests ./...
   - go test ./... -timeout 30s
 
 after_success:
