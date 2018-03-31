@@ -11,8 +11,10 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/hacdias/webdav"
+	"golang.org/x/crypto/bcrypt"
 	wd "golang.org/x/net/webdav"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -213,13 +215,24 @@ func basicAuth(c *cfg) http.Handler {
 			return
 		}
 
-		if password != p {
+		if !checkPassword(p, password) {
+			log.Println("Wrong Password for user", username)
 			http.Error(w, "Not authorized", 401)
 			return
 		}
 
 		c.webdav.ServeHTTP(w, r)
 	})
+}
+
+func checkPassword(saved, input string) bool {
+
+	if strings.HasPrefix(saved, "{bcrypt}") {
+		savedPassword := strings.TrimPrefix(saved, "{bcrypt}")
+		return bcrypt.CompareHashAndPassword([]byte(savedPassword), []byte(input)) == nil
+	}
+
+	return saved == input
 }
 
 func main() {
