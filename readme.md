@@ -12,6 +12,8 @@ port: 8080
 users:
   - username: admin
     password: admin
+  - username: encrypted
+    password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
   - username: basic
     password: basic
     modify:   false
