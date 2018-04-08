@@ -1,0 +1,12 @@
+[Unit]
+Description=WebDAV server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/webdav --config /opt/webdav.config
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
