@@ -25,4 +25,6 @@ users:
 
 You can specify the path to the configuration file using the `--config` flag. By default, it will search for a `config.{yaml,json}` file on your current working directory.
 
+An example of how to use this with `systemd` is on [webdav.service.example](/webdav.service.example).
+
 Download it [here](https://github.com/hacdias/webdav/releases).
