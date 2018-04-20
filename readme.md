@@ -9,6 +9,9 @@
 scope: /path/to/files
 address: 0.0.0.0
 port: 8080
+tls: false
+cert: cert.pem
+key: key.pem
 users:
   - username: admin
     password: admin
