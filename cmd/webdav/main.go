@@ -150,7 +150,7 @@ func parseConfig() *cfg {
 	data := struct {
 		Address string                   `json:"address" yaml:"address"`
 		Port    string                   `json:"port" yaml:"port"`
-		Tls     bool                     `json:"tls" yaml:"tls"`
+		TLS     bool                     `json:"tls" yaml:"tls"`
 		Cert    string                   `json:"cert" yaml:"cert"`
 		Key     string                   `json:"key" yaml:"key"`
 		Scope   string                   `json:"scope" yaml:"scope"`
@@ -160,7 +160,7 @@ func parseConfig() *cfg {
 	}{
 		Address: "0.0.0.0",
 		Port:    "0",
-		Tls:     false,
+		TLS:     false,
 		Cert:    "cert.pem",
 		Key:     "key.pem",
 		Scope:   "./",
@@ -181,7 +181,7 @@ func parseConfig() *cfg {
 	config := &cfg{
 		address: data.Address,
 		port:    data.Port,
-		tls:     data.Tls,
+		tls:     data.TLS,
 		cert:    data.Cert,
 		key:     data.Key,
 		auth:    map[string]string{},
