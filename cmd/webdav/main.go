@@ -138,6 +138,9 @@ type cfg struct {
 	webdav  *webdav.Config
 	address string
 	port    string
+	tls     bool
+	cert    string
+	key     string
 	auth    map[string]string
 }
 
@@ -147,6 +150,9 @@ func parseConfig() *cfg {
 	data := struct {
 		Address string                   `json:"address" yaml:"address"`
 		Port    string                   `json:"port" yaml:"port"`
+		Tls     bool                     `json:"tls" yaml:"tls"`
+		Cert    string                   `json:"cert" yaml:"cert"`
+		Key     string                   `json:"key" yaml:"key"`
 		Scope   string                   `json:"scope" yaml:"scope"`
 		Modify  bool                     `json:"modify" yaml:"modify"`
 		Rules   []map[string]interface{} `json:"rules" yaml:"rules"`
@@ -154,6 +160,9 @@ func parseConfig() *cfg {
 	}{
 		Address: "0.0.0.0",
 		Port:    "0",
+		Tls:     false,
+		Cert:    "cert.pem",
+		Key:     "key.pem",
 		Scope:   "./",
 		Modify:  true,
 	}
@@ -172,6 +181,9 @@ func parseConfig() *cfg {
 	config := &cfg{
 		address: data.Address,
 		port:    data.Port,
+		tls:     data.Tls,
+		cert:    data.Cert,
+		key:     data.Key,
 		auth:    map[string]string{},
 		webdav: &webdav.Config{
 			User: &webdav.User{
@@ -251,7 +263,14 @@ func main() {
 	fmt.Println("Listening on", listener.Addr().String())
 
 	// Starts the server.
-	if err := http.Serve(listener, handler); err != nil {
-		log.Fatal(err)
+	if cfg.tls {
+		if err := http.ServeTLS(listener, handler, cfg.cert, cfg.key); err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		if err := http.Serve(listener, handler); err != nil {
+			log.Fatal(err)
+		}
+
 	}
 }
