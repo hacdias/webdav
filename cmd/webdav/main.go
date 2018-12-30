@@ -77,9 +77,33 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 			log.Fatal("user needs an username")
 		}
 
+		// load username from environment when prefix {env} is added
+		if strings.HasPrefix(username, "{env}") {
+			var envUsername = strings.TrimPrefix(username, "{env}")
+			if envUsername == "" {
+				log.Fatal("no environment variable specified for username")
+			}
+			username = os.Getenv(envUsername)
+			if username == "" {
+				log.Fatal("username must be set in environment")
+			}
+		}
+
 		password, ok := r["password"].(string)
 		if !ok {
 			log.Fatal("user needs a password")
+		}
+
+		// load password from environment when prefix {env} is added
+		if strings.HasPrefix(password, "{env}") {
+			var envPassword = strings.TrimPrefix(password, "{env}")
+			if envPassword == "" {
+				log.Fatal("no environment variable specified for password")
+			}
+			password = os.Getenv(envPassword)
+			if password == "" {
+				log.Fatal("password must be set in environment")
+			}
 		}
 
 		c.auth[username] = password
