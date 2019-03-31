@@ -1,15 +1,15 @@
 language: go
 
-go: 1.10.x
+go: 1.12.x
 
 env:
-  - "PATH=/home/travis/gopath/bin:$PATH"
+  - "PATH=/home/travis/gopath/bin:$PATH GO111MODULE=on"
 
 install:
   - go get ./...
   # Install gometalinter and certain linters
-  - go get github.com/alecthomas/gometalinter
-  - gometalinter --install
+  - env GO111MODULE=off go get github.com/alecthomas/gometalinter
+  - env GO111MODULE=off gometalinter --install
 
 script:
   - gometalinter --disable-all -E vet -E gofmt -E misspell -E ineffassign -E goimports -E deadcode --tests ./...
