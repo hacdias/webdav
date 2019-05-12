@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"github.com/hacdias/webdav"
-	"golang.org/x/crypto/bcrypt"
 	wd "golang.org/x/net/webdav"
 	yaml "gopkg.in/yaml.v2"
 )
@@ -106,12 +105,12 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 			}
 		}
 
-		c.auth[username] = password
-
 		user := &webdav.User{
-			Scope:  c.webdav.User.Scope,
-			Modify: c.webdav.User.Modify,
-			Rules:  c.webdav.User.Rules,
+			Username: username,
+			Password: password,
+			Scope:    c.webdav.User.Scope,
+			Modify:   c.webdav.User.Modify,
+			Rules:    c.webdav.User.Rules,
 		}
 
 		if scope, ok := r["scope"].(string); ok {
@@ -163,10 +162,8 @@ type cfg struct {
 	address string
 	port    string
 	tls     bool
-	noAuth  bool
 	cert    string
 	key     string
-	auth    map[string]string
 }
 
 func parseConfig() *cfg {
@@ -177,7 +174,7 @@ func parseConfig() *cfg {
 		Port    string                   `json:"port" yaml:"port"`
 		TLS     bool                     `json:"tls" yaml:"tls"`
 		Cert    string                   `json:"cert" yaml:"cert"`
-		NoAuth  bool                     `json:"noauth" yaml:"noauth"`
+		Auth    bool                     `json:"auth" yaml:"auth"`
 		Key     string                   `json:"key" yaml:"key"`
 		Scope   string                   `json:"scope" yaml:"scope"`
 		Modify  bool                     `json:"modify" yaml:"modify"`
@@ -190,7 +187,7 @@ func parseConfig() *cfg {
 		Cert:    "cert.pem",
 		Key:     "key.pem",
 		Scope:   "./",
-		NoAuth:  false,
+		Auth:    true,
 		Modify:  true,
 	}
 
@@ -211,8 +208,6 @@ func parseConfig() *cfg {
 		tls:     data.TLS,
 		cert:    data.Cert,
 		key:     data.Key,
-		noAuth:  data.NoAuth,
-		auth:    map[string]string{},
 		webdav: &webdav.Config{
 			User: &webdav.User{
 				Scope:  data.Scope,
@@ -223,6 +218,7 @@ func parseConfig() *cfg {
 					LockSystem: wd.NewMemLS(),
 				},
 			},
+			Auth:  data.Auth,
 			Users: map[string]*webdav.User{},
 		},
 	}
@@ -235,52 +231,9 @@ func parseConfig() *cfg {
 	return config
 }
 
-func basicAuth(c *cfg) http.Handler {
-	if c.noAuth {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			c.webdav.ServeHTTP(w, r)
-		})
-	}
-
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-
-		username, password, authOK := r.BasicAuth()
-		if !authOK {
-			http.Error(w, "Not authorized", 401)
-			return
-		}
-
-		p, ok := c.auth[username]
-		if !ok {
-			http.Error(w, "Not authorized", 401)
-			return
-		}
-
-		if !checkPassword(p, password) {
-			log.Println("Wrong Password for user", username)
-			http.Error(w, "Not authorized", 401)
-			return
-		}
-
-		c.webdav.ServeHTTP(w, r)
-	})
-}
-
-func checkPassword(saved, input string) bool {
-	if strings.HasPrefix(saved, "{bcrypt}") {
-		savedPassword := strings.TrimPrefix(saved, "{bcrypt}")
-		return bcrypt.CompareHashAndPassword([]byte(savedPassword), []byte(input)) == nil
-	}
-
-	return saved == input
-}
-
 func main() {
 	flag.Parse()
 	cfg := parseConfig()
-
-	handler := basicAuth(cfg)
 
 	// Builds the address and a listener.
 	laddr := cfg.address + ":" + cfg.port
@@ -294,11 +247,11 @@ func main() {
 
 	// Starts the server.
 	if cfg.tls {
-		if err := http.ServeTLS(listener, handler, cfg.cert, cfg.key); err != nil {
+		if err := http.ServeTLS(listener, cfg.webdav, cfg.cert, cfg.key); err != nil {
 			log.Fatal(err)
 		}
 	} else {
-		if err := http.Serve(listener, handler); err != nil {
+		if err := http.Serve(listener, cfg.webdav); err != nil {
 			log.Fatal(err)
 		}
 

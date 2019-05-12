@@ -2,16 +2,15 @@ package webdav
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"regexp"
-	"strings"
-
-	"golang.org/x/net/webdav"
 )
 
 // Config is the configuration of a WebDAV instance.
 type Config struct {
 	*User
+	Auth  bool
 	Users map[string]*User
 }
 
@@ -19,12 +18,29 @@ type Config struct {
 func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := c.User
 
-	// Gets the correct user for this request.
-	username, _, ok := r.BasicAuth()
-	if ok {
-		if user, ok := c.Users[username]; ok {
-			u = user
+	if c.Auth {
+		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
+
+		// Gets the correct user for this request.
+		username, password, ok := r.BasicAuth()
+		if !ok {
+			http.Error(w, "Not authorized", 401)
+			return
 		}
+
+		user, ok := c.Users[username]
+		if !ok {
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		if !checkPassword(user.Password, password) {
+			log.Println("Wrong Password for user", username)
+			http.Error(w, "Not authorized", 401)
+			return
+		}
+
+		u = user
 	}
 
 	// Checks for user permissions relatively to this PATH.
@@ -74,36 +90,6 @@ type Rule struct {
 	Allow  bool
 	Path   string
 	Regexp *regexp.Regexp
-}
-
-// User contains the settings of each user.
-type User struct {
-	Scope   string
-	Modify  bool
-	Rules   []*Rule
-	Handler *webdav.Handler
-}
-
-// Allowed checks if the user has permission to access a directory/file
-func (u User) Allowed(url string) bool {
-	var rule *Rule
-	i := len(u.Rules) - 1
-
-	for i >= 0 {
-		rule = u.Rules[i]
-
-		if rule.Regex {
-			if rule.Regexp.MatchString(url) {
-				return rule.Allow
-			}
-		} else if strings.HasPrefix(url, rule.Path) {
-			return rule.Allow
-		}
-
-		i--
-	}
-
-	return true
 }
 
 // responseWriterNoBody is a wrapper used to suprress the body of the response
