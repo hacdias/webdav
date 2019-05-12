@@ -1,0 +1,42 @@
+version: 2
+jobs:
+  lint:
+    docker:
+      - image: golangci/golangci-lint:v1.16
+    steps:
+      - checkout
+      - run: golangci-lint run -v
+  build:
+    docker:
+      - image: circleci/golang:1.12
+    steps:
+      - checkout
+      - run: cd cmd/webdav && go build main.go
+  release:
+    docker:
+      - image: circleci/golang:1.12
+    steps:
+      - checkout
+      - run: curl -sL https://git.io/goreleaser | bash
+workflows:
+  version: 2
+  build-workflow:
+    jobs:
+      - lint:
+          filters:
+            tags:
+              only: /.*/
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - release:
+          context: deploy
+          requires:
+            - build
+            - lint
+          filters:
+            tags:
+              only: /^v.*/
+            branches:
+              ignore: /.*/
