@@ -24,8 +24,8 @@ users:
     modify:   false
     rules:
       - regex: false
-      - allow: false
-      - path: /some/file
+        allow: false
+        path: /some/file
 ```
 
 You can specify the path to the configuration file using the `--config` flag. By default, it will search for a `config.{yaml,json}` file on your current working directory.

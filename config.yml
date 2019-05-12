@@ -1,9 +1,12 @@
-scope: .
-address: 0.0.0.0
-port: 8080
-auth: false
+port: 5050
+auth: true
+rules:
+  - regex: false
+    allow: false
+    path: /some/file
+  - regex: true
+    allow: true
+    path: /*.go
 users:
-  - username: admin
-    password: admin
-  - username: test
-    modify: false
+  - username: mary
+    password: mary
