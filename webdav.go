@@ -57,6 +57,10 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
+
+			if r.Header.Get("Depth") == "" {
+				r.Header.Add("Depth", "1")
+			}
 		}
 	}
 
