@@ -1,9 +1,0 @@
-scope: .
-address: 0.0.0.0
-port: 8080
-auth: false
-users:
-  - username: admin
-    password: admin
-  - username: test
-    modify: false

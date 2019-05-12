@@ -11,7 +11,7 @@ jobs:
       - image: circleci/golang:1.12
     steps:
       - checkout
-      - run: cd cmd/webdav && go build main.go
+      - run: go build main.go
   release:
     docker:
       - image: circleci/golang:1.12
