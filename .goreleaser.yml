@@ -21,9 +21,21 @@ build:
       goarch: arm
       goarm: 6
 
-archive:
-  name_template: "{{.Os}}-{{.Arch}}-{{ .ProjectName }}"
-  format: tar.gz
-  format_overrides:
-    - goos: windows
-      format: zip
+archives:
+  -
+    name_template: "{{.Os}}-{{.Arch}}-{{ .ProjectName }}"
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+
+dockers:
+  -
+    goos: linux
+    goarch: amd64
+    goarm: ''
+    image_templates:
+      - "hacdias/webdav:latest"
+      - "hacdias/webdav:{{ .Tag }}"
+      - "hacdias/webdav:v{{ .Major }}.{{ .Minor }}"
+      - "hacdias/webdav:v{{ .Major }}"
