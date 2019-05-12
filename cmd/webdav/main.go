@@ -223,6 +223,10 @@ func parseConfig() *cfg {
 		},
 	}
 
+	if len(data.Users) != 0 && !data.Auth {
+		log.Print("Users will be ignored due to auth=false")
+	}
+
 	if len(data.Rules) != 0 {
 		config.webdav.User.Rules = parseRules(data.Rules)
 	}
