@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"net/http"
-	"regexp"
 )
 
 // Config is the configuration of a WebDAV instance.
@@ -82,14 +81,6 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Runs the WebDAV.
 	u.Handler.ServeHTTP(w, r)
-}
-
-// Rule is a dissalow/allow rule.
-type Rule struct {
-	Regex  bool
-	Allow  bool
-	Path   string
-	Regexp *regexp.Regexp
 }
 
 // responseWriterNoBody is a wrapper used to suprress the body of the response

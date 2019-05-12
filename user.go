@@ -1,10 +1,19 @@
 package webdav
 
 import (
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/webdav"
 )
+
+// Rule is a dissalow/allow rule.
+type Rule struct {
+	Regex  bool
+	Allow  bool
+	Path   string
+	Regexp *regexp.Regexp
+}
 
 // User contains the settings of each user.
 type User struct {
