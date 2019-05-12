@@ -91,7 +91,7 @@ func parseUsers(raw []map[string]interface{}, c *cfg) {
 
 		password, ok := r["password"].(string)
 		if !ok {
-			log.Fatal("user needs a password")
+			password = ""
 		}
 
 		// load password from environment when prefix {env} is added
