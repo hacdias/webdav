@@ -163,6 +163,7 @@ type cfg struct {
 	address string
 	port    string
 	tls     bool
+	noAuth  bool
 	cert    string
 	key     string
 	auth    map[string]string
@@ -176,6 +177,7 @@ func parseConfig() *cfg {
 		Port    string                   `json:"port" yaml:"port"`
 		TLS     bool                     `json:"tls" yaml:"tls"`
 		Cert    string                   `json:"cert" yaml:"cert"`
+		NoAuth  bool                     `json:"noauth" yaml:"noauth"`
 		Key     string                   `json:"key" yaml:"key"`
 		Scope   string                   `json:"scope" yaml:"scope"`
 		Modify  bool                     `json:"modify" yaml:"modify"`
@@ -188,6 +190,7 @@ func parseConfig() *cfg {
 		Cert:    "cert.pem",
 		Key:     "key.pem",
 		Scope:   "./",
+		NoAuth:  false,
 		Modify:  true,
 	}
 
@@ -208,6 +211,7 @@ func parseConfig() *cfg {
 		tls:     data.TLS,
 		cert:    data.Cert,
 		key:     data.Key,
+		noAuth:  data.NoAuth,
 		auth:    map[string]string{},
 		webdav: &webdav.Config{
 			User: &webdav.User{
@@ -223,10 +227,6 @@ func parseConfig() *cfg {
 		},
 	}
 
-	if len(data.Users) == 0 {
-		log.Fatal("no user defined")
-	}
-
 	if len(data.Rules) != 0 {
 		config.webdav.User.Rules = parseRules(data.Rules)
 	}
@@ -236,6 +236,12 @@ func parseConfig() *cfg {
 }
 
 func basicAuth(c *cfg) http.Handler {
+	if c.noAuth {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			c.webdav.ServeHTTP(w, r)
+		})
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
@@ -273,6 +279,7 @@ func checkPassword(saved, input string) bool {
 func main() {
 	flag.Parse()
 	cfg := parseConfig()
+
 	handler := basicAuth(cfg)
 
 	// Builds the address and a listener.
