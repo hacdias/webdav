@@ -1,12 +1,1 @@
 port: 5050
-auth: true
-rules:
-  - regex: false
-    allow: false
-    path: /some/file
-  - regex: true
-    allow: true
-    path: /*.go
-users:
-  - username: mary
-    password: mary

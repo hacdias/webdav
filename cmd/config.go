@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"errors"
@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hacdias/webdav"
+	"github.com/hacdias/webdav/webdav"
 	"github.com/spf13/pflag"
 	v "github.com/spf13/viper"
 	wd "golang.org/x/net/webdav"

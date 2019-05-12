@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -20,7 +20,6 @@ func init() {
 
 	flags := rootCmd.Flags()
 	flags.StringVarP(&cfgFile, "config", "c", "", "config file path")
-	flags.Bool("auth", true, "whether to use authentication or not")
 	flags.BoolP("tls", "t", false, "enable tls")
 	flags.String("cert", "cert.pem", "TLS certificate")
 	flags.String("key", "key.pem", "TLS key")
@@ -30,7 +29,23 @@ func init() {
 
 var rootCmd = &cobra.Command{
 	Use:   "webdav",
-	Short: "A simple to use Web Dav server",
+	Short: "A simple to use WebDAV server",
+	Long: `If you don't set "config", it will look for a configuration file called
+config.{json, toml, yaml, yml} in the following directories:
+
+- ./
+- /etc/webdav/
+
+The precedence of the configuration values are as follows:
+
+- flags
+- environment variables
+- configuration file
+- defaults
+
+The environment variables are prefixed by "WD_" followed by the option
+name in caps. So to set "cert" via an env variable, you should
+set WD_CERT.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		flags := cmd.Flags()
 
@@ -72,6 +87,12 @@ func initConfig() {
 	v.AutomaticEnv()
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
-	err := v.ReadInConfig()
-	checkErr(err)
+	if err := v.ReadInConfig(); err != nil {
+		if _, ok := err.(v.ConfigParseError); ok {
+			panic(err)
+		}
+		cfgFile = "No config file used"
+	} else {
+		cfgFile = "Using config file: " + v.ConfigFileUsed()
+	}
 }

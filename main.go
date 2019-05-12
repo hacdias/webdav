@@ -1,14 +1,12 @@
 package main
 
 import (
-	"log"
 	"runtime"
+
+	"github.com/hacdias/webdav/cmd"
 )
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-
-	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
-	}
+	cmd.Execute()
 }
