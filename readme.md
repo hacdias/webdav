@@ -17,6 +17,8 @@ users:
     password: admin
   - username: encrypted
     password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
+  - username: "{env}ENV_USERNAME"
+    password: "{env}ENV_PASSWORD"
   - username: basic
     password: basic
     modify:   false
