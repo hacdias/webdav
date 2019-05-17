@@ -10,12 +10,21 @@ import (
 type Config struct {
 	*User
 	Auth  bool
+	Cors bool
 	Users map[string]*User
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
 func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := c.User
+
+	if r.Method == "OPTIONS" && c.Cors {
+		headers := w.Header()
+		headers.Set("Access-Control-Allow-Origin", "*")
+		headers.Set("Access-Control-Allow-Methods", "*")
+		headers.Set("Access-Control-Allow-Headers", "*")
+		return
+	}
 
 	if c.Auth {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
@@ -87,6 +96,13 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				r.Header.Add("Depth", "1")
 			}
 		}
+	}
+
+	if c.Cors {
+		headers := w.Header()
+		headers.Set("Access-Control-Allow-Origin", "*")
+		headers.Set("Access-Control-Allow-Methods", "*")
+		headers.Set("Access-Control-Allow-Headers", "*")
 	}
 
 	// Runs the WebDAV.

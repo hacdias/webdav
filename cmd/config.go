@@ -130,6 +130,7 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 			},
 		},
 		Auth:  getOptB(flags, "auth"),
+		Cors:  getOptB(flags, "cors"),
 		Users: map[string]*webdav.User{},
 	}
 
