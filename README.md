@@ -26,6 +26,11 @@ scope: .
 modify: true
 rules: []
 
+# CORS configuration
+cors:
+  - enabled: false
+    allowed_hosts: []
+
 users:
   - username: admin
     password: admin
