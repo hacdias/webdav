@@ -6,17 +6,17 @@ import (
 	"net/http"
 )
 
-// Config is the configuration of a WebDAV instance.
-
+// CorsCfg is the CORS config.
 type CorsCfg struct {
-	Enabled bool
+	Enabled      bool
 	AllowedHosts []string
 }
 
+// Config is the configuration of a WebDAV instance.
 type Config struct {
 	*User
 	Auth  bool
-	Cors CorsCfg
+	Cors  CorsCfg
 	Users map[string]*User
 }
 
@@ -30,11 +30,11 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		headers := w.Header()
 
-		if(len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*") {
+		if len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*" {
 			headers.Set("Access-Control-Allow-Methods", "*")
 			headers.Set("Access-Control-Allow-Headers", "*")
 			headers.Set("Access-Control-Allow-Origin", "*")
-		} else if(isAllowedHost(c.Cors.AllowedHosts, requestOrigin)) {
+		} else if isAllowedHost(c.Cors.AllowedHosts, requestOrigin) {
 			headers.Set("Access-Control-Allow-Origin", requestOrigin)
 			headers.Set("Access-Control-Allow-Headers", "*")
 			headers.Set("Access-Control-Allow-Methods", "*")

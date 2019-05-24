@@ -16,10 +16,10 @@ func checkPassword(saved, input string) bool {
 }
 
 func isAllowedHost(allowedHosts []string, origin string) bool {
-  for _, host := range allowedHosts {
-    if host == origin {
-      return true
-    }
-  }
-  return false
+	for _, host := range allowedHosts {
+		if host == origin {
+			return true
+		}
+	}
+	return false
 }

@@ -126,14 +126,12 @@ func parseCors(raw []interface{}, c *webdav.Config) {
 		if cfg, ok := v.(map[interface{}]interface{}); ok {
 
 			cors := webdav.CorsCfg{
-				Enabled: cfg["enabled"].(bool),
+				Enabled:      cfg["enabled"].(bool),
 				AllowedHosts: []string{},
 			}
 
-			if allowed_hosts, ok := cfg["allowed_hosts"]; ok {
-				for _, host := range strings.Split(allowed_hosts.(string), ",") {
-					hosts = append(hosts, host)
-				}
+			if allowedHosts, ok := cfg["allowed_hosts"]; ok {
+				hosts = append(hosts, strings.Split(allowedHosts.(string), ",")...)
 			}
 
 			if len(hosts) == 0 {
@@ -157,9 +155,9 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 				LockSystem: wd.NewMemLS(),
 			},
 		},
-		Auth:  getOptB(flags, "auth"),
+		Auth: getOptB(flags, "auth"),
 		Cors: webdav.CorsCfg{
-			Enabled: false,
+			Enabled:      false,
 			AllowedHosts: []string{},
 		},
 		Users: map[string]*webdav.User{},
