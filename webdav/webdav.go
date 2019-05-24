@@ -7,22 +7,41 @@ import (
 )
 
 // Config is the configuration of a WebDAV instance.
+
+type CorsCfg struct {
+	Enabled bool
+	AllowedHosts []string
+}
+
 type Config struct {
 	*User
 	Auth  bool
-	Cors bool
+	Cors CorsCfg
 	Users map[string]*User
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
 func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := c.User
+	requestOrigin := r.Header.Get("Origin")
 
-	if r.Method == "OPTIONS" && c.Cors {
+	// add cors headers before any operation so even on 401 unauthorized cors will working only when Origin header is present so request came from browser
+	if c.Cors.Enabled && requestOrigin != "" {
+
 		headers := w.Header()
-		headers.Set("Access-Control-Allow-Origin", "*")
-		headers.Set("Access-Control-Allow-Methods", "*")
-		headers.Set("Access-Control-Allow-Headers", "*")
+
+		if(len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*") {
+			headers.Set("Access-Control-Allow-Methods", "*")
+			headers.Set("Access-Control-Allow-Headers", "*")
+			headers.Set("Access-Control-Allow-Origin", "*")
+		} else if(isAllowedHost(c.Cors.AllowedHosts, requestOrigin)) {
+			headers.Set("Access-Control-Allow-Origin", requestOrigin)
+			headers.Set("Access-Control-Allow-Headers", "*")
+			headers.Set("Access-Control-Allow-Methods", "*")
+		}
+	}
+
+	if r.Method == "OPTIONS" && c.Cors.Enabled && requestOrigin != "" {
 		return
 	}
 
@@ -96,13 +115,6 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				r.Header.Add("Depth", "1")
 			}
 		}
-	}
-
-	if c.Cors {
-		headers := w.Header()
-		headers.Set("Access-Control-Allow-Origin", "*")
-		headers.Set("Access-Control-Allow-Methods", "*")
-		headers.Set("Access-Control-Allow-Headers", "*")
 	}
 
 	// Runs the WebDAV.

@@ -14,3 +14,12 @@ func checkPassword(saved, input string) bool {
 
 	return saved == input
 }
+
+func isAllowedHost(allowedHosts []string, origin string) bool {
+  for _, host := range allowedHosts {
+    if host == origin {
+      return true
+    }
+  }
+  return false
+}

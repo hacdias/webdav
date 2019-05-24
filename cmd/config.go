@@ -118,6 +118,34 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 	}
 }
 
+func parseCors(raw []interface{}, c *webdav.Config) {
+	hosts := []string{}
+
+	for _, v := range raw {
+
+		if cfg, ok := v.(map[interface{}]interface{}); ok {
+
+			cors := webdav.CorsCfg{
+				Enabled: cfg["enabled"].(bool),
+				AllowedHosts: []string{},
+			}
+
+			if allowed_hosts, ok := cfg["allowed_hosts"]; ok {
+				for _, host := range strings.Split(allowed_hosts.(string), ",") {
+					hosts = append(hosts, host)
+				}
+			}
+
+			if len(hosts) == 0 {
+				hosts = append(hosts, "*")
+			}
+
+			cors.AllowedHosts = hosts
+			c.Cors = cors
+		}
+	}
+}
+
 func readConfig(flags *pflag.FlagSet) *webdav.Config {
 	cfg := &webdav.Config{
 		User: &webdav.User{
@@ -130,7 +158,10 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 			},
 		},
 		Auth:  getOptB(flags, "auth"),
-		Cors:  getOptB(flags, "cors"),
+		Cors: webdav.CorsCfg{
+			Enabled: false,
+			AllowedHosts: []string{},
+		},
 		Users: map[string]*webdav.User{},
 	}
 
@@ -142,6 +173,11 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 	rawUsers := v.Get("users")
 	if users, ok := rawUsers.([]interface{}); ok {
 		parseUsers(users, cfg)
+	}
+
+	rawCors := v.Get("cors")
+	if cors, ok := rawCors.([]interface{}); ok {
+		parseCors(cors, cfg)
 	}
 
 	if len(cfg.Users) != 0 && !cfg.Auth {
