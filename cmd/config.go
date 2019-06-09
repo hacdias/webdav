@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/hacdias/webdav/webdav"
@@ -81,6 +82,10 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 			password, ok := u["password"].(string)
 			if !ok {
 				password = ""
+
+				if numPwd, ok := u["password"].(int); ok {
+					password = strconv.Itoa(numPwd)
+				}
 			}
 
 			if strings.HasPrefix(password, "{env}") {
