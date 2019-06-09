@@ -21,6 +21,7 @@ func init() {
 	flags := rootCmd.Flags()
 	flags.StringVarP(&cfgFile, "config", "c", "", "config file path")
 	flags.BoolP("tls", "t", false, "enable tls")
+	flags.Bool("auth", true, "enable auth")
 	flags.String("cert", "cert.pem", "TLS certificate")
 	flags.String("key", "key.pem", "TLS key")
 	flags.StringP("address", "a", "0.0.0.0", "address to listen to")
