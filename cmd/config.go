@@ -123,30 +123,44 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 	}
 }
 
-func parseCors(raw []interface{}, c *webdav.Config) {
-	hosts := []string{}
+func parseCors(cfg map[string]interface{}, c *webdav.Config) {
+	cors := webdav.CorsCfg{
+		Enabled:     cfg["enabled"].(bool),
+		Credentials: cfg["credentials"].(bool),
+	}
 
-	for _, v := range raw {
+	cors.AllowedHeaders = corsProperty("allowed_headers", cfg)
+	cors.AllowedHosts = corsProperty("allowed_hosts", cfg)
+	cors.AllowedMethods = corsProperty("allowed_methods", cfg)
+	cors.ExposedHeaders = corsProperty("exposed_headers", cfg)
 
-		if cfg, ok := v.(map[interface{}]interface{}); ok {
+	c.Cors = cors
+}
 
-			cors := webdav.CorsCfg{
-				Enabled:      cfg["enabled"].(bool),
-				AllowedHosts: []string{},
-			}
+func corsProperty(property string, cfg map[string]interface{}) []string {
+	var def []string
 
-			if allowedHosts, ok := cfg["allowed_hosts"]; ok {
-				hosts = append(hosts, strings.Split(allowedHosts.(string), ",")...)
-			}
+	if property == "exposed_headers" {
+		def = []string{}
+	} else {
+		def = []string{"*"}
+	}
 
-			if len(hosts) == 0 {
-				hosts = append(hosts, "*")
-			}
+	if allowed, ok := cfg[property].([]interface{}); ok {
+		items := make([]string, len(allowed))
 
-			cors.AllowedHosts = hosts
-			c.Cors = cors
+		for idx, a := range allowed {
+			items[idx] = a.(string)
+		}
+
+		if len(items) == 0 {
+			return def
+		} else {
+			return items
 		}
 	}
+
+	return def
 }
 
 func readConfig(flags *pflag.FlagSet) *webdav.Config {
@@ -162,8 +176,8 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 		},
 		Auth: getOptB(flags, "auth"),
 		Cors: webdav.CorsCfg{
-			Enabled:      false,
-			AllowedHosts: []string{},
+			Enabled:     false,
+			Credentials: false,
 		},
 		Users: map[string]*webdav.User{},
 	}
@@ -179,7 +193,7 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 	}
 
 	rawCors := v.Get("cors")
-	if cors, ok := rawCors.([]interface{}); ok {
+	if cors, ok := rawCors.(map[string]interface{}); ok {
 		parseCors(cors, cfg)
 	}
 
