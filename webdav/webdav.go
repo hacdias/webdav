@@ -4,12 +4,17 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"strings"
 )
 
 // CorsCfg is the CORS config.
 type CorsCfg struct {
-	Enabled      bool
-	AllowedHosts []string
+	Enabled        bool
+	Credentials    bool
+	AllowedHeaders []string
+	AllowedHosts   []string
+	AllowedMethods []string
+	ExposedHeaders []string
 }
 
 // Config is the configuration of a WebDAV instance.
@@ -25,19 +30,34 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u := c.User
 	requestOrigin := r.Header.Get("Origin")
 
-	// add cors headers before any operation so even on 401 unauthorized cors will working only when Origin header is present so request came from browser
+	// Add CORS headers before any operation so even on a 401 unauthorized status, CORS will work.
 	if c.Cors.Enabled && requestOrigin != "" {
-
 		headers := w.Header()
 
-		if len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*" {
-			headers.Set("Access-Control-Allow-Methods", "*")
-			headers.Set("Access-Control-Allow-Headers", "*")
+		allowedHeaders := strings.Join(c.Cors.AllowedHeaders, ", ")
+		allowedMethods := strings.Join(c.Cors.AllowedMethods, ", ")
+		exposedHeaders := strings.Join(c.Cors.ExposedHeaders, ", ")
+
+		allowAllHosts := len(c.Cors.AllowedHosts) == 1 && c.Cors.AllowedHosts[0] == "*"
+		allowedHost := isAllowedHost(c.Cors.AllowedHosts, requestOrigin)
+
+		if allowAllHosts {
 			headers.Set("Access-Control-Allow-Origin", "*")
-		} else if isAllowedHost(c.Cors.AllowedHosts, requestOrigin) {
+		} else if allowedHost {
 			headers.Set("Access-Control-Allow-Origin", requestOrigin)
-			headers.Set("Access-Control-Allow-Headers", "*")
-			headers.Set("Access-Control-Allow-Methods", "*")
+		}
+
+		if allowAllHosts || allowedHost {
+			headers.Set("Access-Control-Allow-Headers", allowedHeaders)
+			headers.Set("Access-Control-Allow-Methods", allowedMethods)
+
+			if c.Cors.Credentials {
+				headers.Set("Access-Control-Allow-Credentials", "true")
+			}
+
+			if len(c.Cors.ExposedHeaders) > 0 {
+				headers.Set("Access-Control-Expose-Headers", exposedHeaders)
+			}
 		}
 	}
 
@@ -45,6 +65,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Authentication
 	if c.Auth {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 

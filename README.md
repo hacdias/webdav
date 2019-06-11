@@ -28,8 +28,17 @@ rules: []
 
 # CORS configuration
 cors:
-  - enabled: false
-    allowed_hosts: []
+  enabled: true
+  credentials: true
+  allowed_headers:
+    - Depth
+  allowed_hosts:
+    - http://localhost:8080
+  allowed_methods:
+    - GET
+  exposed_headers:
+    - Content-Length
+    - Content-Range
 
 users:
   - username: admin
@@ -53,6 +62,13 @@ There are more ways to customize how you run WebDAV through flags and environmen
 ### Systemd
 
 An example of how to use this with `systemd` is on [webdav.service.example](/webdav.service.example).
+
+### CORS
+
+The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `credentials` to `true` will allow you to:
+
+1. Use `withCredentials = true` in javascript.
+2. Use the `username:password@host` syntax.
 
 ## License
 
