@@ -174,7 +174,8 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 				LockSystem: wd.NewMemLS(),
 			},
 		},
-		Auth: getOptB(flags, "auth"),
+		Auth:        getOptB(flags, "auth"),
+		Filemanager: getOptB(flags, "filemanager"),
 		Cors: webdav.CorsCfg{
 			Enabled:     false,
 			Credentials: false,

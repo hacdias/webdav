@@ -20,9 +20,10 @@ type CorsCfg struct {
 // Config is the configuration of a WebDAV instance.
 type Config struct {
 	*User
-	Auth  bool
-	Cors  CorsCfg
-	Users map[string]*User
+	Auth        bool
+	Filemanager bool
+	Cors        CorsCfg
+	Users       map[string]*User
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
@@ -128,6 +129,14 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//
 	// Get, when applied to collection, will return the same as PROPFIND method.
 	if r.Method == "GET" {
+		if c.Filemanager && (r.URL.Path == "/" || r.URL.Path == "") {
+			log.Printf("Send webdav-js to user %s", u.Username)
+			_, err := w.Write([]byte(`<script type="text/javascript">javascript:!function(){var e;e=["https://cdn.jsdelivr.net/gh/noelboss/featherlight@1.7.1/release/featherlight.min.js","https://cdn.jsdelivr.net/gh/google/code-prettify/loader/run_prettify.js?autorun=false","https://cdn.jsdelivr.net/gh/notifyjs/notifyjs/dist/notify.js","https://cdn.jsdelivr.net/gh/noelboss/featherlight@1.7.1/release/featherlight.min.css","https://cdn.jsdelivr.net/gh/dom111/webdav-js/assets/css/style-min.css","https://cdn.jsdelivr.net/gh/dom111/webdav-js/src/webdav-min.js"];var t,n=document.getElementsByTagName("head")[0],a=function(e,t){var s=document.createElement("script");s.src=e,s.type="text/javascript",t&&(s.onload=t),n.appendChild(s)};a("https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js",function(){e.forEach(function(e){var t,s;e.match(/css$/)?(t=e,(s=document.createElement("link")).href=t,s.rel="stylesheet",n.appendChild(s)):a(e)})}),(t=document.createElement("meta")).name="viewport",t.content="width=device-width, initial-scale=1",n.appendChild(t)}()</script>`))
+			if err != nil {
+				log.Print(err)
+			}
+			return
+		}
 		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"

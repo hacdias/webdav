@@ -20,6 +20,7 @@ auth: true
 tls: false
 cert: cert.pem
 key: key.pem
+filemanager: true
 
 # Default user settings (will be merged)
 scope: .
