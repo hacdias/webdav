@@ -10,7 +10,7 @@ import (
 
 	"github.com/hacdias/webdav/v2/webdav"
 	"github.com/spf13/pflag"
-	v "github.com/spf13/viper"
+	vr "github.com/spf13/viper"
 	wd "golang.org/x/net/webdav"
 )
 
@@ -183,17 +183,17 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 		Users: map[string]*webdav.User{},
 	}
 
-	rawRules := v.Get("rules")
+	rawRules := vr.Get("rules")
 	if rules, ok := rawRules.([]interface{}); ok {
 		cfg.User.Rules = parseRules(rules)
 	}
 
-	rawUsers := v.Get("users")
+	rawUsers := vr.Get("users")
 	if users, ok := rawUsers.([]interface{}); ok {
 		parseUsers(users, cfg)
 	}
 
-	rawCors := v.Get("cors")
+	rawCors := vr.Get("cors")
 	if cors, ok := rawCors.(map[string]interface{}); ok {
 		parseCors(cors, cfg)
 	}
