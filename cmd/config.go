@@ -114,6 +114,7 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 			}
 
 			user.Handler = &wd.Handler{
+				Prefix: c.User.Handler.Prefix,
 				FileSystem: wd.Dir(user.Scope),
 				LockSystem: wd.NewMemLS(),
 			}
@@ -170,6 +171,7 @@ func readConfig(flags *pflag.FlagSet) *webdav.Config {
 			Modify: getOptB(flags, "modify"),
 			Rules:  []*webdav.Rule{},
 			Handler: &wd.Handler{
+				Prefix: getOpt(flags, "prefix"),
 				FileSystem: wd.Dir(getOpt(flags, "scope")),
 				LockSystem: wd.NewMemLS(),
 			},
