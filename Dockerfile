@@ -6,6 +6,6 @@ COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifica
 
 EXPOSE 80
 
-COPY webdav /webdav
+COPY go-webdav /webdav
 
 ENTRYPOINT [ "/webdav" ]
