@@ -26,6 +26,7 @@ func init() {
 	flags.String("key", "key.pem", "TLS key")
 	flags.StringP("address", "a", "0.0.0.0", "address to listen to")
 	flags.StringP("port", "p", "0", "port to listen to")
+	flags.StringP("prefix", "P", "/", "URL path prefix")
 }
 
 var rootCmd = &cobra.Command{
