@@ -1,4 +1,4 @@
-module github.com/hacdias/webdav/v2
+module github.com/hacdias/webdav/v3
 
 go 1.12
 

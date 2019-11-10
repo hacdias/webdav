@@ -8,18 +8,18 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/hacdias/webdav/v2/webdav"
+	"github.com/hacdias/webdav/v3/lib"
 	"github.com/spf13/pflag"
 	v "github.com/spf13/viper"
-	wd "golang.org/x/net/webdav"
+	"golang.org/x/net/webdav"
 )
 
-func parseRules(raw []interface{}) []*webdav.Rule {
-	rules := []*webdav.Rule{}
+func parseRules(raw []interface{}) []*lib.Rule {
+	rules := []*lib.Rule{}
 
 	for _, v := range raw {
 		if r, ok := v.(map[interface{}]interface{}); ok {
-			rule := &webdav.Rule{
+			rule := &lib.Rule{
 				Regex: false,
 				Allow: false,
 				Path:  "",
@@ -65,7 +65,7 @@ func loadFromEnv(v string) (string, error) {
 	return v, nil
 }
 
-func parseUsers(raw []interface{}, c *webdav.Config) {
+func parseUsers(raw []interface{}, c *lib.Config) {
 	var err error
 	for _, v := range raw {
 		if u, ok := v.(map[interface{}]interface{}); ok {
@@ -93,7 +93,7 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 				checkErr(err)
 			}
 
-			user := &webdav.User{
+			user := &lib.User{
 				Username: username,
 				Password: password,
 				Scope:    c.User.Scope,
@@ -113,10 +113,10 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 				user.Rules = parseRules(rules)
 			}
 
-			user.Handler = &wd.Handler{
-				Prefix: c.User.Handler.Prefix,
-				FileSystem: wd.Dir(user.Scope),
-				LockSystem: wd.NewMemLS(),
+			user.Handler = &webdav.Handler{
+				Prefix:     c.User.Handler.Prefix,
+				FileSystem: webdav.Dir(user.Scope),
+				LockSystem: webdav.NewMemLS(),
 			}
 
 			c.Users[username] = user
@@ -124,8 +124,8 @@ func parseUsers(raw []interface{}, c *webdav.Config) {
 	}
 }
 
-func parseCors(cfg map[string]interface{}, c *webdav.Config) {
-	cors := webdav.CorsCfg{
+func parseCors(cfg map[string]interface{}, c *lib.Config) {
+	cors := lib.CorsCfg{
 		Enabled:     cfg["enabled"].(bool),
 		Credentials: cfg["credentials"].(bool),
 	}
@@ -156,32 +156,32 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 
 		if len(items) == 0 {
 			return def
-		} else {
-			return items
 		}
+
+		return items
 	}
 
 	return def
 }
 
-func readConfig(flags *pflag.FlagSet) *webdav.Config {
-	cfg := &webdav.Config{
-		User: &webdav.User{
+func readConfig(flags *pflag.FlagSet) *lib.Config {
+	cfg := &lib.Config{
+		User: &lib.User{
 			Scope:  getOpt(flags, "scope"),
 			Modify: getOptB(flags, "modify"),
-			Rules:  []*webdav.Rule{},
-			Handler: &wd.Handler{
-				Prefix: getOpt(flags, "prefix"),
-				FileSystem: wd.Dir(getOpt(flags, "scope")),
-				LockSystem: wd.NewMemLS(),
+			Rules:  []*lib.Rule{},
+			Handler: &webdav.Handler{
+				Prefix:     getOpt(flags, "prefix"),
+				FileSystem: webdav.Dir(getOpt(flags, "scope")),
+				LockSystem: webdav.NewMemLS(),
 			},
 		},
 		Auth: getOptB(flags, "auth"),
-		Cors: webdav.CorsCfg{
+		Cors: lib.CorsCfg{
 			Enabled:     false,
 			Credentials: false,
 		},
-		Users: map[string]*webdav.User{},
+		Users: map[string]*lib.User{},
 	}
 
 	rawRules := v.Get("rules")
