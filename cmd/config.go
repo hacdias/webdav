@@ -11,7 +11,9 @@ import (
 	"github.com/hacdias/webdav/v3/lib"
 	"github.com/spf13/pflag"
 	v "github.com/spf13/viper"
-	"golang.org/x/net/webdav"
+
+	//"golang.org/x/net/webdav"
+	"github.com/hacdias/webdav/v3/webdav"
 )
 
 func parseRules(raw []interface{}) []*lib.Rule {

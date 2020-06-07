@@ -168,21 +168,26 @@ var liveProps = map[xml.Name]struct {
 // of one Propstat element.
 func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pnames []xml.Name) ([]Propstat, error) {
 	f, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
+	var fi os.FileInfo
 	if err != nil {
-		return nil, err
+		// return nil, err
+		fi, err = fs.Stat(ctx, name)
+	} else {
+		defer f.Close()
+		fi, err = f.Stat()
 	}
-	defer f.Close()
-	fi, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 	isDir := fi.IsDir()
 
 	var deadProps map[xml.Name]Property
-	if dph, ok := f.(DeadPropsHolder); ok {
-		deadProps, err = dph.DeadProps()
-		if err != nil {
-			return nil, err
+	if f != nil {
+		if dph, ok := f.(DeadPropsHolder); ok {
+			deadProps, err = dph.DeadProps()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -198,12 +203,16 @@ func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pname
 		if prop := liveProps[pn]; prop.findFn != nil && (prop.dir || !isDir) {
 			innerXML, err := prop.findFn(ctx, fs, ls, name, fi)
 			if err != nil {
-				return nil, err
+				//return nil, err
+				pstatNotFound.Props = append(pstatNotFound.Props, Property{
+					XMLName: pn,
+				})
+			} else {
+				pstatOK.Props = append(pstatOK.Props, Property{
+					XMLName:  pn,
+					InnerXML: []byte(innerXML),
+				})
 			}
-			pstatOK.Props = append(pstatOK.Props, Property{
-				XMLName:  pn,
-				InnerXML: []byte(innerXML),
-			})
 		} else {
 			pstatNotFound.Props = append(pstatNotFound.Props, Property{
 				XMLName: pn,
@@ -215,22 +224,27 @@ func props(ctx context.Context, fs FileSystem, ls LockSystem, name string, pname
 
 // Propnames returns the property names defined for resource name.
 func propnames(ctx context.Context, fs FileSystem, ls LockSystem, name string) ([]xml.Name, error) {
+	var fi os.FileInfo
 	f, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
 	if err != nil {
-		return nil, err
+		//return nil, err
+		fi, err = fs.Stat(ctx, name)
+	} else {
+		defer f.Close()
+		fi, err = f.Stat()
 	}
-	defer f.Close()
-	fi, err := f.Stat()
 	if err != nil {
 		return nil, err
 	}
 	isDir := fi.IsDir()
 
 	var deadProps map[xml.Name]Property
-	if dph, ok := f.(DeadPropsHolder); ok {
-		deadProps, err = dph.DeadProps()
-		if err != nil {
-			return nil, err
+	if f != nil {
+		if dph, ok := f.(DeadPropsHolder); ok {
+			deadProps, err = dph.DeadProps()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

@@ -4,7 +4,8 @@ import (
 	"regexp"
 	"strings"
 
-	"golang.org/x/net/webdav"
+	// "golang.org/x/net/webdav"
+	"github.com/hacdias/webdav/v3/webdav"
 )
 
 // Rule is a dissalow/allow rule.
