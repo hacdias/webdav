@@ -127,8 +127,8 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//		the collection, or something else altogether.
 	//
 	// Get, when applied to collection, will return the same as PROPFIND method.
-	if r.Method == "GET" {
-		info, err := u.Handler.FileSystem.Stat(context.TODO(), r.URL.Path)
+	if r.Method == "GET" && strings.HasPrefix(r.URL.Path, u.Handler.Prefix) {
+		info, err := u.Handler.FileSystem.Stat(context.TODO(), strings.TrimPrefix(r.URL.Path, u.Handler.Prefix))
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
 
