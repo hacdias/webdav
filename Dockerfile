@@ -9,7 +9,7 @@ COPY go.sum .
 RUN go mod download
 
 COPY . .
-RUN go build -v
+RUN CGO_ENABLED=0 go build -v -a
 
 FROM scratch
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
