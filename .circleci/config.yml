@@ -2,19 +2,19 @@ version: 2
 jobs:
   lint:
     docker:
-      - image: golangci/golangci-lint:v1.16
+      - image: golangci/golangci-lint:v1.30
     steps:
       - checkout
       - run: golangci-lint run -v
   build:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     steps:
       - checkout
       - run: go build main.go
   release:
     docker:
-      - image: circleci/golang:1.12
+      - image: circleci/golang:1.14
     steps:
       - checkout
       - setup_remote_docker
