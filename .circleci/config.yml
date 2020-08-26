@@ -13,13 +13,15 @@ jobs:
       - checkout
       - run: go build main.go
   release:
-    machine:
-      image: circleci/golang:1.14
+    machine: true
     steps:
       - checkout
+      - go/install
       - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - run: curl -sL https://git.io/goreleaser | bash
       - run: docker logout
+orbs:
+  go: circleci/go@1.14
 workflows:
   version: 2
   build-workflow:
