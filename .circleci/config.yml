@@ -13,8 +13,7 @@ jobs:
       - checkout
       - run: go build main.go
   release:
-    docker:
-      - image: circleci/golang:1.14
+    machine: true
     steps:
       - checkout
       - setup_remote_docker
