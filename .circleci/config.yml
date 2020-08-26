@@ -13,7 +13,8 @@ jobs:
       - checkout
       - run: go build main.go
   release:
-    machine: true
+    machine:
+      image: circleci/golang:1.14
     steps:
       - checkout
       - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
