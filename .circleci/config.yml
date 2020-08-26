@@ -16,7 +16,6 @@ jobs:
     machine: true
     steps:
       - checkout
-      - setup_remote_docker
       - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - run: curl -sL https://git.io/goreleaser | bash
       - run: docker logout
