@@ -49,6 +49,13 @@ archives:
       - goos: windows
         format: zip
 
+release:
+  github:
+    owner: hacdias
+    name: webdav
+  draft: true
+  prerelease: auto
+
 dockers:
   -
     goos: linux
