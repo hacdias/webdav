@@ -1,6 +1,6 @@
 # webdav
 
-[![Build](https://img.shields.io/circleci/project/github/hacdias/webdav/master.svg?style=flat-square)](https://circleci.com/gh/hacdias/webdav)
+![Build](https://github.com/hacdias/webdav/workflows/Tests/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hacdias/webdav?style=flat-square)](https://goreportcard.com/report/hacdias/webdav)
 [![Version](https://img.shields.io/github/release/hacdias/webdav.svg?style=flat-square)](https://github.com/hacdias/webdav/releases/latest)
 [![Docker Pulls](https://img.shields.io/docker/pulls/hacdias/webdav)](https://hub.docker.com/r/hacdias/webdav)
