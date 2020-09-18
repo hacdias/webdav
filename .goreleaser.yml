@@ -9,6 +9,8 @@ before:
 build:
   main: main.go
   binary: webdav
+  flags:
+    - -trimpath
   ldflags:
     - -s -w -X github.com/hacdias/webdav/cmd.version={{.Version}}
   goos:
