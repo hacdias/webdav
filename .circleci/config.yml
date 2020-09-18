@@ -14,8 +14,8 @@ jobs:
       - run: go build main.go
   release:
     executor:
-      name: go/default
-      tag: '1.15'
+      - name: go/default
+      - tag: '1.15'
     steps:
       - checkout
       - go/load-cache
