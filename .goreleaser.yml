@@ -53,7 +53,7 @@ release:
   github:
     owner: hacdias
     name: webdav
-  draft: true
+  draft: false
   prerelease: auto
 
 dockers:
