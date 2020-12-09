@@ -14,7 +14,7 @@ import (
 	"golang.org/x/net/webdav"
 )
 
-func parseRules(raw []interface{}) []*lib.Rule {
+func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
 	rules := []*lib.Rule{}
 
 	for _, v := range raw {
@@ -22,6 +22,7 @@ func parseRules(raw []interface{}) []*lib.Rule {
 			rule := &lib.Rule{
 				Regex: false,
 				Allow: false,
+				Modify: defaultModify,
 				Path:  "",
 			}
 
@@ -31,6 +32,13 @@ func parseRules(raw []interface{}) []*lib.Rule {
 
 			if allow, ok := r["allow"].(bool); ok {
 				rule.Allow = allow
+			}
+
+			if modify, ok := r["modify"].(bool); ok {
+				rule.Modify = modify
+				if modify {
+					rule.Allow = true
+				}
 			}
 
 			path, ok := r["path"].(string)
@@ -110,7 +118,7 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 			}
 
 			if rules, ok := u["rules"].([]interface{}); ok {
-				user.Rules = parseRules(rules)
+				user.Rules = parseRules(rules, user.Modify)
 			}
 
 			user.Handler = &webdav.Handler{
@@ -186,7 +194,7 @@ func readConfig(flags *pflag.FlagSet) *lib.Config {
 
 	rawRules := v.Get("rules")
 	if rules, ok := rawRules.([]interface{}); ok {
-		cfg.User.Rules = parseRules(rules)
+		cfg.User.Rules = parseRules(rules, cfg.User.Modify)
 	}
 
 	rawUsers := v.Get("users")
