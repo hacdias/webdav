@@ -118,7 +118,7 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 			}
 
 			if rules, ok := u["rules"].([]interface{}); ok {
-				user.Rules = parseRules(rules, user.Modify)
+				user.Rules = append(c.User.Rules, parseRules(rules, user.Modify)...)
 			}
 
 			user.Handler = &webdav.Handler{
