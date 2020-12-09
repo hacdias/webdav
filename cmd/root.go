@@ -53,9 +53,17 @@ set WD_CERT.`,
 
 		cfg := readConfig(flags)
 
-		// Builds the address and a listener.
-		laddr := getOpt(flags, "address") + ":" + getOpt(flags, "port")
-		listener, err := net.Listen("tcp", laddr)
+		// Build address and listener
+		laddr := getOpt(flags, "address")
+		var lnet string
+		if strings.HasPrefix(laddr, "unix:") {
+			laddr = laddr[5:]
+			lnet = "unix"
+		} else {
+			laddr = laddr + ":" + getOpt(flags, "port")
+			lnet = "tcp"
+		}
+		listener, err := net.Listen(lnet, laddr)
 		if err != nil {
 			log.Fatal(err)
 		}
