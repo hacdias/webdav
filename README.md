@@ -57,6 +57,8 @@ users:
       - regex: false
         allow: false
         path: /some/file
+      - path: /public/access/
+        modify: true
 ```
 
 There are more ways to customize how you run WebDAV through flags and environment variables. Please run `webdav --help` for more information on that.

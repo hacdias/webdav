@@ -102,7 +102,6 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	// TODO: Are any methods missing? Locks? Is OPTIONS already handled above?
 	noModification := r.Method == "GET" || r.Method == "HEAD" ||
 		r.Method == "OPTIONS" || r.Method == "PROPFIND"
 	if !u.Allowed(r.URL.Path, noModification) {
