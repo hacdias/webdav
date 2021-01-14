@@ -102,22 +102,15 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	if !u.Allowed(r.URL.Path) {
+	noModification := r.Method == "GET" || r.Method == "HEAD" ||
+		r.Method == "OPTIONS" || r.Method == "PROPFIND"
+	if !u.Allowed(r.URL.Path, noModification) {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
 	if r.Method == "HEAD" {
 		w = newResponseWriterNoBody(w)
-	}
-
-	// If this request modified the files and the user doesn't have permission
-	// to do so, return forbidden.
-	if (r.Method == "PUT" || r.Method == "POST" || r.Method == "MKCOL" ||
-		r.Method == "DELETE" || r.Method == "COPY" || r.Method == "MOVE") &&
-		!u.Modify {
-		w.WriteHeader(http.StatusForbidden)
-		return
 	}
 
 	// Excerpt from RFC4918, section 9.4:

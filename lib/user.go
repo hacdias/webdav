@@ -11,6 +11,7 @@ import (
 type Rule struct {
 	Regex  bool
 	Allow  bool
+	Modify bool
 	Path   string
 	Regexp *regexp.Regexp
 }
@@ -26,23 +27,24 @@ type User struct {
 }
 
 // Allowed checks if the user has permission to access a directory/file
-func (u User) Allowed(url string) bool {
+func (u User) Allowed(url string, noModification bool) bool {
 	var rule *Rule
 	i := len(u.Rules) - 1
 
 	for i >= 0 {
 		rule = u.Rules[i]
 
+		isAllowed := rule.Allow && (noModification || rule.Modify)
 		if rule.Regex {
 			if rule.Regexp.MatchString(url) {
-				return rule.Allow
+				return isAllowed
 			}
 		} else if strings.HasPrefix(url, rule.Path) {
-			return rule.Allow
+			return isAllowed
 		}
 
 		i--
 	}
 
-	return true
+	return noModification || u.Modify
 }
