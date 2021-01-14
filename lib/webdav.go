@@ -20,9 +20,10 @@ type CorsCfg struct {
 // Config is the configuration of a WebDAV instance.
 type Config struct {
 	*User
-	Auth  bool
-	Cors  CorsCfg
-	Users map[string]*User
+	Auth    bool
+	NoSniff bool
+	Cors    CorsCfg
+	Users   map[string]*User
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.

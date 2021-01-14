@@ -122,8 +122,11 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 			}
 
 			user.Handler = &webdav.Handler{
-				Prefix:     c.User.Handler.Prefix,
-				FileSystem: webdav.Dir(user.Scope),
+				Prefix: c.User.Handler.Prefix,
+				FileSystem: lib.WebDavDir{
+					Dir:     webdav.Dir(user.Scope),
+					NoSniff: c.NoSniff,
+				},
 				LockSystem: webdav.NewMemLS(),
 			}
 
@@ -179,12 +182,16 @@ func readConfig(flags *pflag.FlagSet) *lib.Config {
 			Modify: getOptB(flags, "modify"),
 			Rules:  []*lib.Rule{},
 			Handler: &webdav.Handler{
-				Prefix:     getOpt(flags, "prefix"),
-				FileSystem: webdav.Dir(getOpt(flags, "scope")),
+				Prefix: getOpt(flags, "prefix"),
+				FileSystem: lib.WebDavDir{
+					Dir:     webdav.Dir(getOpt(flags, "scope")),
+					NoSniff: getOptB(flags, "nosniff"),
+				},
 				LockSystem: webdav.NewMemLS(),
 			},
 		},
-		Auth: getOptB(flags, "auth"),
+		Auth:    getOptB(flags, "auth"),
+		NoSniff: getOptB(flags, "nosniff"),
 		Cors: lib.CorsCfg{
 			Enabled:     false,
 			Credentials: false,
