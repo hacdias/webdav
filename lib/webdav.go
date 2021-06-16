@@ -77,13 +77,13 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
 		reqHost := func() string {
-			hArr := strings.Split(r.Host, ":")
+			hArr := strings.Split(r.RemoteAddr, ":")
 			return hArr[0]
 		}
 		reqMark := fmt.Sprintf("%s:%s", reqHost(), username)
 
 		if _, found := authorizedSource[reqMark]; !found {
-			log.Printf("%s tried to verify account , username is [%s]", r.Host, username)
+			log.Printf("%s tried to verify account , username is [%s]", r.RemoteAddr, username)
 		}
 
 		if !ok {
