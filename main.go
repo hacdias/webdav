@@ -23,10 +23,8 @@ func main() {
 	sigterm := make(chan os.Signal, 1)
 	signal.Notify(sigterm, syscall.SIGQUIT, syscall.SIGTERM, syscall.SIGINT)
 
-	select {
-	case <-sigterm:
-		log.Println("receive stop signal")
-	}
+	<-sigterm
+	log.Println("receive stop signal")
 
 	cancel()
 	// wait for other goroutines to quit
