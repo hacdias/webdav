@@ -2,9 +2,11 @@ package lib
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"strings"
+	"time"
 )
 
 // CorsCfg is the CORS config.
@@ -72,6 +74,16 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
+		reqHost := func() string {
+			hArr := strings.Split(r.RemoteAddr, ":")
+			return hArr[0]
+		}
+		reqMark := fmt.Sprintf("%s:%s", reqHost(), username)
+
+		if _, found := authorizedSource[reqMark]; !found {
+			log.Printf("%s tried to verify account , username is [%s]", r.RemoteAddr, username)
+		}
+
 		if !ok {
 			http.Error(w, "Not authorized", 401)
 			return
@@ -87,6 +99,8 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			log.Println("Wrong Password for user", username)
 			http.Error(w, "Not authorized", 401)
 			return
+		} else {
+			authorizedSource[reqMark] = time.Now()
 		}
 
 		u = user
@@ -103,8 +117,16 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	noModification := r.Method == "GET" || r.Method == "HEAD" ||
-		r.Method == "OPTIONS" || r.Method == "PROPFIND"
+	noModification := r.Method == "GET" ||
+		r.Method == "HEAD" ||
+		r.Method == "OPTIONS" ||
+		r.Method == "PROPFIND" ||
+		r.Method == "PUT" ||
+		r.Method == "LOCK" ||
+		r.Method == "UNLOCK" ||
+		r.Method == "MOVE" ||
+		r.Method == "DELETE"
+
 	if !u.Allowed(r.URL.Path, noModification) {
 		w.WriteHeader(http.StatusForbidden)
 		return
@@ -133,6 +155,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Runs the WebDAV.
+	//u.Handler.LockSystem = webdav.NewMemLS()
 	u.Handler.ServeHTTP(w, r)
 }
 
