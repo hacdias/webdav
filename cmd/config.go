@@ -15,15 +15,15 @@ import (
 )
 
 func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
-	rules := []*lib.Rule{}
+	var rules []*lib.Rule
 
-	for _, v := range raw {
-		if r, ok := v.(map[interface{}]interface{}); ok {
+	for _, value := range raw {
+		if r, ok := value.(map[interface{}]interface{}); ok {
 			rule := &lib.Rule{
-				Regex: false,
-				Allow: false,
+				Regex:  false,
+				Allow:  false,
 				Modify: defaultModify,
-				Path:  "",
+				Path:   "",
 			}
 
 			if regex, ok := r["regex"].(bool); ok {
@@ -75,8 +75,8 @@ func loadFromEnv(v string) (string, error) {
 
 func parseUsers(raw []interface{}, c *lib.Config) {
 	var err error
-	for _, v := range raw {
-		if u, ok := v.(map[interface{}]interface{}); ok {
+	for _, value := range raw {
+		if u, ok := value.(map[interface{}]interface{}); ok {
 			username, ok := u["username"].(string)
 			if !ok {
 				log.Fatal("user needs an username")
