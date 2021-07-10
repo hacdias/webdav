@@ -13,6 +13,7 @@ Please refer to the [Releases page](https://github.com/hacdias/webdav/releases) 
 
 ```webdav``` command line interface is really easy to use so you can easily create a WebDAV server for your own user. By default, it runs on a random free port and supports JSON, YAML and TOML configuration. An example of a YAML configuration with the default configurations:
 
+> If the listener address type is ipv6, then you should put quotation marks around the address, like "[::1]"
 ```yaml
 # Server related settings
 address: 0.0.0.0
