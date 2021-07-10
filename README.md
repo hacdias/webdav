@@ -75,6 +75,19 @@ The `allowed_*` properties are optional, the default value for each of them will
 1. Use `withCredentials = true` in javascript.
 2. Use the `username:password@host` syntax.
 
+### Reverse Proxy Service
+When you use a reverse proxy implementation like `Nginx` or `Apache`, please note the following fields to avoid causing `502` errors
+```text
+location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header REMOTE-HOST $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header Host $http_host;
+        proxy_redirect off;
+    }
+```
+
 ## License
 
 MIT © [Henrique Dias](https://hacdias.com)
