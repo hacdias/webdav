@@ -52,7 +52,6 @@ set WD_CERT.`,
 		flags := cmd.Flags()
 
 		cfg := readConfig(flags)
-
 		// Build address and listener
 		laddr := getOpt(flags, "address")
 		var lnet string
