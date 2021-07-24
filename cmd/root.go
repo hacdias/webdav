@@ -30,13 +30,13 @@ func init() {
 }
 
 var rootCmd = &cobra.Command{
-	Use:   "webdav",
+	Use:   "lib_official_webdav",
 	Short: "A simple to use WebDAV server",
 	Long: `If you don't set "config", it will look for a configuration file called
 config.{json, toml, yaml, yml} in the following directories:
 
 - ./
-- /etc/webdav/
+- /etc/lib_official_webdav/
 
 The precedence of the configuration values are as follows:
 
@@ -87,7 +87,7 @@ set WD_CERT.`,
 func initConfig() {
 	if cfgFile == "" {
 		v.AddConfigPath(".")
-		v.AddConfigPath("/etc/webdav/")
+		v.AddConfigPath("/etc/lib_official_webdav/")
 		v.SetConfigName("config")
 	} else {
 		v.SetConfigFile(cfgFile)

@@ -1,9 +1,8 @@
 package lib
 
 import (
-	"strings"
-
 	"golang.org/x/crypto/bcrypt"
+	"strings"
 )
 
 func checkPassword(saved, input string) bool {

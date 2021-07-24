@@ -2,27 +2,26 @@ package cmd
 
 import (
 	"errors"
+	"github.com/spf13/pflag"
+	v "github.com/spf13/viper"
 	"log"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/hacdias/webdav/v3/lib"
-	"github.com/spf13/pflag"
-	v "github.com/spf13/viper"
-	"golang.org/x/net/webdav"
+	"webdav/lib"
+	webdav "webdav/lib_official_webdav"
 )
 
-func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
-	rules := []*lib.Rule{}
+func parseRules(raw []interface{}, scope *lib.Scope) []*lib.Rule {
+	var rules []*lib.Rule
 
 	for _, v := range raw {
 		if r, ok := v.(map[interface{}]interface{}); ok {
 			rule := &lib.Rule{
 				Regex: false,
-				Allow: false,
-				Modify: defaultModify,
+				Allow_r: true,
+				Allow_w: scope.Allow_w,
 				Path:  "",
 			}
 
@@ -30,14 +29,14 @@ func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
 				rule.Regex = regex
 			}
 
-			if allow, ok := r["allow"].(bool); ok {
-				rule.Allow = allow
+			if allow_r, ok := r["allow_r"].(bool); ok {
+				rule.Allow_r = allow_r
 			}
 
-			if modify, ok := r["modify"].(bool); ok {
-				rule.Modify = modify
-				if modify {
-					rule.Allow = true
+			if allow_w, ok := r["allow_w"].(bool); ok {
+				rule.Allow_w = allow_w
+				if allow_w {
+					rule.Allow_r = true
 				}
 			}
 
@@ -45,6 +44,8 @@ func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
 			if !ok {
 				continue
 			}
+			path = strings.TrimPrefix(path, scope.Root)
+
 
 			if rule.Regex {
 				rule.Regexp = regexp.MustCompile(path)
@@ -59,19 +60,55 @@ func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
 	return rules
 }
 
-func loadFromEnv(v string) (string, error) {
-	v = strings.TrimPrefix(v, "{env}")
-	if v == "" {
-		return "", errors.New("no environment variable specified")
+
+func parseScopes(raw []interface{}, user *lib.User) map[string]*lib.Scope {
+	scopes := make(map[string]*lib.Scope)
+
+	for _, v := range raw {
+		if s, ok := v.(map[interface{}]interface{}); ok {
+			scope := &lib.Scope{
+				Root: "",
+				Allow_w: false,
+				Rules: nil,
+				Handler: nil,
+			}
+
+			if root, ok := s["root"].(string); ok {
+				scope.Root = handlePathSeparator(root)
+			}
+
+			scope.Handler = &webdav.Handler{
+				Prefix: "",
+				FileSystem: lib.WebDavDir{
+					Dir:     webdav.Dir(scope.Root),
+					NoSniff: false,
+				},
+				LockSystem: webdav.NewMemLS(),
+			}
+
+			if alias, ok := s["alias"].(string); ok {
+				if !strings.HasPrefix(alias, "/") {
+					alias = strings.Join([]string{"/", alias}, "")
+				}
+				scope.Handler.Prefix = alias
+			}
+
+			scopes[scope.Handler.Prefix] = scope
+
+			if allow_w, ok := s["allow_w"].(bool); ok {
+				scope.Allow_w = allow_w
+			}
+
+			if rules, ok := s["rules"].([]interface{}); ok {
+				scope.Rules = parseRules(rules, scope)
+			}
+
+		}
 	}
 
-	v = os.Getenv(v)
-	if v == "" {
-		return "", errors.New("the environment variable is empty")
-	}
-
-	return v, nil
+	return scopes
 }
+
 
 func parseUsers(raw []interface{}, c *lib.Config) {
 	var err error
@@ -90,7 +127,6 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 			password, ok := u["password"].(string)
 			if !ok {
 				password = ""
-
 				if numPwd, ok := u["password"].(int); ok {
 					password = strconv.Itoa(numPwd)
 				}
@@ -104,36 +140,41 @@ func parseUsers(raw []interface{}, c *lib.Config) {
 			user := &lib.User{
 				Username: username,
 				Password: password,
-				Scope:    c.User.Scope,
-				Modify:   c.User.Modify,
-				Rules:    c.User.Rules,
+				Scopes:   nil,
 			}
 
-			if scope, ok := u["scope"].(string); ok {
-				user.Scope = scope
-			}
-
-			if modify, ok := u["modify"].(bool); ok {
-				user.Modify = modify
-			}
-
-			if rules, ok := u["rules"].([]interface{}); ok {
-				user.Rules = append(c.User.Rules, parseRules(rules, user.Modify)...)
-			}
-
-			user.Handler = &webdav.Handler{
-				Prefix: c.User.Handler.Prefix,
-				FileSystem: lib.WebDavDir{
-					Dir:     webdav.Dir(user.Scope),
-					NoSniff: c.NoSniff,
-				},
-				LockSystem: webdav.NewMemLS(),
+			if scopes, ok := u["scopes"].([]interface{}); ok {
+				user.Scopes = parseScopes(scopes, user)
 			}
 
 			c.Users[username] = user
 		}
 	}
 }
+
+func readConfig(flags *pflag.FlagSet) *lib.Config {
+	cfg := &lib.Config{
+		NoSniff: getOptB(flags, "nosniff"),
+		Cors: lib.CorsCfg{
+			Enabled:     false,
+			Credentials: false,
+		},
+		Users: map[string]*lib.User{},
+	}
+
+	rawCors := v.Get("cors")
+	if cors, ok := rawCors.(map[string]interface{}); ok {
+		parseCors(cors, cfg)
+	}
+
+	rawUsers := v.Get("users")
+	if users, ok := rawUsers.([]interface{}); ok {
+		parseUsers(users, cfg)
+	}
+
+	return cfg
+}
+
 
 func parseCors(cfg map[string]interface{}, c *lib.Config) {
 	cors := lib.CorsCfg{
@@ -175,48 +216,27 @@ func corsProperty(property string, cfg map[string]interface{}) []string {
 	return def
 }
 
-func readConfig(flags *pflag.FlagSet) *lib.Config {
-	cfg := &lib.Config{
-		User: &lib.User{
-			Scope:  getOpt(flags, "scope"),
-			Modify: getOptB(flags, "modify"),
-			Rules:  []*lib.Rule{},
-			Handler: &webdav.Handler{
-				Prefix: getOpt(flags, "prefix"),
-				FileSystem: lib.WebDavDir{
-					Dir:     webdav.Dir(getOpt(flags, "scope")),
-					NoSniff: getOptB(flags, "nosniff"),
-				},
-				LockSystem: webdav.NewMemLS(),
-			},
-		},
-		Auth:    getOptB(flags, "auth"),
-		NoSniff: getOptB(flags, "nosniff"),
-		Cors: lib.CorsCfg{
-			Enabled:     false,
-			Credentials: false,
-		},
-		Users: map[string]*lib.User{},
+func loadFromEnv(v string) (string, error) {
+	v = strings.TrimPrefix(v, "{env}")
+	if v == "" {
+		return "", errors.New("no environment variable specified")
 	}
 
-	rawRules := v.Get("rules")
-	if rules, ok := rawRules.([]interface{}); ok {
-		cfg.User.Rules = parseRules(rules, cfg.User.Modify)
+	v = os.Getenv(v)
+	if v == "" {
+		return "", errors.New("the environment variable is empty")
 	}
 
-	rawUsers := v.Get("users")
-	if users, ok := rawUsers.([]interface{}); ok {
-		parseUsers(users, cfg)
-	}
+	return v, nil
+}
 
-	rawCors := v.Get("cors")
-	if cors, ok := rawCors.(map[string]interface{}); ok {
-		parseCors(cors, cfg)
+/**
+ * 分隔符'\\'转'/'，末尾不带分隔符
+ */
+func handlePathSeparator(path string) string {
+	tmp := strings.Replace(path, "\\", "/", -1)
+	for len(tmp) > 1 && strings.HasSuffix(tmp, "/") {
+		tmp = strings.TrimSuffix(tmp, "/")
 	}
-
-	if len(cfg.Users) != 0 && !cfg.Auth {
-		log.Print("Users will be ignored due to auth=false")
-	}
-
-	return cfg
+	return tmp
 }
