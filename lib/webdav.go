@@ -80,7 +80,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		reqMark := fmt.Sprintf("%s:%s", reqHost(), username)
 
-		if _, found := authorizedSource[reqMark]; !found {
+		if _, found := authorizedSource.Load(reqMark); !found {
 			log.Printf("%s tried to verify account , username is [%s]", r.RemoteAddr, username)
 		}
 
@@ -100,7 +100,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "Not authorized", 401)
 			return
 		} else {
-			authorizedSource[reqMark] = time.Now()
+			authorizedSource.Store(reqMark, time.Now())
 		}
 
 		u = user
