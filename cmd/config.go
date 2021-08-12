@@ -20,10 +20,10 @@ func parseRules(raw []interface{}, defaultModify bool) []*lib.Rule {
 	for _, v := range raw {
 		if r, ok := v.(map[interface{}]interface{}); ok {
 			rule := &lib.Rule{
-				Regex: false,
-				Allow: false,
+				Regex:  false,
+				Allow:  false,
 				Modify: defaultModify,
-				Path:  "",
+				Path:   "",
 			}
 
 			if regex, ok := r["regex"].(bool); ok {
@@ -196,7 +196,8 @@ func readConfig(flags *pflag.FlagSet) *lib.Config {
 			Enabled:     false,
 			Credentials: false,
 		},
-		Users: map[string]*lib.User{},
+		Users:     map[string]*lib.User{},
+		LogFormat: getOpt(flags, "log_format"),
 	}
 
 	rawRules := v.Get("rules")
