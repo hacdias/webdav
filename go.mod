@@ -1,4 +1,4 @@
-module github.com/hacdias/webdav/v3
+module github.com/hacdias/webdav/v4
 
 go 1.16
 
@@ -19,3 +19,5 @@ require (
 	golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1 // indirect
 	gopkg.in/ini.v1 v1.62.0 // indirect
 )
+
+retract v4.1.0

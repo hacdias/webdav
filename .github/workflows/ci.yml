@@ -17,7 +17,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ ubuntu-latest, macos-latest, windows-latest ]
-        go: [ '1.15' ]
+        go: [ '1.16' ]
 
     runs-on: ${{ matrix.os }}
 
@@ -75,6 +75,7 @@ jobs:
           github_token: ${{ secrets.github_token }}
 
   goreleaser-check:
+  # goreleaser --rm-dist --skip-validate --skip-publish
     runs-on: ubuntu-latest
     steps:
       - name: checkout
