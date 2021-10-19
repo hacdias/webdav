@@ -2,11 +2,10 @@ package lib
 
 import (
 	"context"
-	"fmt"
-	"log"
 	"net/http"
 	"strings"
-	"time"
+
+	"go.uber.org/zap"
 )
 
 // CorsCfg is the CORS config.
@@ -22,10 +21,11 @@ type CorsCfg struct {
 // Config is the configuration of a WebDAV instance.
 type Config struct {
 	*User
-	Auth    bool
-	NoSniff bool
-	Cors    CorsCfg
-	Users   map[string]*User
+	Auth      bool
+	NoSniff   bool
+	Cors      CorsCfg
+	Users     map[string]*User
+	LogFormat string
 }
 
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
@@ -74,16 +74,7 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
-		reqHost := func() string {
-			hArr := strings.Split(r.RemoteAddr, ":")
-			return hArr[0]
-		}
-		reqMark := fmt.Sprintf("%s:%s", reqHost(), username)
-
-		if _, found := authorizedSource[reqMark]; !found {
-			log.Printf("%s tried to verify account , username is [%s]", r.RemoteAddr, username)
-		}
-
+		zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
 		if !ok {
 			http.Error(w, "Not authorized", 401)
 			return
@@ -96,14 +87,13 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !checkPassword(user.Password, password) {
-			log.Println("Wrong Password for user", username)
+			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
 			http.Error(w, "Not authorized", 401)
 			return
-		} else {
-			authorizedSource[reqMark] = time.Now()
 		}
 
 		u = user
+		zap.L().Info("user authorized", zap.String("username", username))
 	} else {
 		// Even if Auth is disabled, we might want to get
 		// the user from the Basic Auth header. Useful for Caddy
