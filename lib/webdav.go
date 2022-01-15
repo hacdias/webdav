@@ -107,15 +107,8 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	noModification := r.Method == "GET" ||
-		r.Method == "HEAD" ||
-		r.Method == "OPTIONS" ||
-		r.Method == "PROPFIND" ||
-		r.Method == "PUT" ||
-		r.Method == "LOCK" ||
-		r.Method == "UNLOCK" ||
-		r.Method == "MOVE" ||
-		r.Method == "DELETE"
+	noModification := r.Method == "GET" || r.Method == "HEAD" ||
+		r.Method == "OPTIONS" || r.Method == "PROPFIND"
 
 	if !u.Allowed(r.URL.Path, noModification) {
 		w.WriteHeader(http.StatusForbidden)
