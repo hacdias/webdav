@@ -71,6 +71,9 @@ set WD_CERT.`,
 		}
 		loggerConfig := zap.NewProductionConfig()
 		loggerConfig.DisableCaller = true
+		if cfg.Debug {
+			loggerConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+		}
 		loggerConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
 		loggerConfig.Encoding = cfg.LogFormat
 		logger, err := loggerConfig.Build()
