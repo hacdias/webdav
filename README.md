@@ -22,6 +22,7 @@ tls: false
 cert: cert.pem
 key: key.pem
 prefix: /
+debug: false
 
 # Default user settings (will be merged)
 scope: .
