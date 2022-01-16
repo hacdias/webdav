@@ -51,7 +51,7 @@ archives:
 
 release:
   github:
-    owner: hacdias
+    owner: great-fork
     name: webdav
   draft: false
   prerelease: auto
@@ -62,10 +62,10 @@ dockers:
     goarch: amd64
     goarm: ''
     image_templates:
-      - "hacdias/webdav:latest"
-      - "hacdias/webdav:{{ .Tag }}"
-      - "hacdias/webdav:v{{ .Major }}.{{ .Minor }}"
-      - "hacdias/webdav:v{{ .Major }}"
+      - "greatbody/webdav:latest"
+      - "greatbody/webdav:{{ .Tag }}"
+      - "greatbody/webdav:v{{ .Major }}.{{ .Minor }}"
+      - "greatbody/webdav:v{{ .Major }}"
   -
     goos: linux
     goarch: arm
