@@ -14,24 +14,24 @@ build:
   ldflags:
     - -s -w -X github.com/hacdias/webdav/cmd.version={{.Version}}
   goos:
-    - darwin
+    # - darwin
     - linux
-    - windows
-    - freebsd
-    - netbsd
-    - openbsd
+    # - windows
+    # - freebsd
+    # - netbsd
+    # - openbsd
   goarch:
     - amd64
-    - 386
+    # - 386
     - arm
-    - arm64
-    - mips
-    - mipsle
-    - mips64
-    - mips64le
+    # - arm64
+    # - mips
+    # - mipsle
+    # - mips64
+    # - mips64le
   goarm:
-    - 5
-    - 6
+    # - 5
+    # - 6
     - 7
   ignore:
     - goos: openbsd
