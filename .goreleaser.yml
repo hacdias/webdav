@@ -66,3 +66,15 @@ dockers:
       - "hacdias/webdav:{{ .Tag }}"
       - "hacdias/webdav:v{{ .Major }}.{{ .Minor }}"
       - "hacdias/webdav:v{{ .Major }}"
+  -
+    goos: linux
+    goarch: arm
+    goarm: 7
+    use: buildx
+    build_flag_templates:
+      - '--platform=linux/arm/v7'
+    image_templates:
+      - "greatbody/webdav:armv7-latest"
+      - "greatbody/webdav:armv7-{{ .Tag }}"
+      - "greatbody/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
+      - "greatbody/webdav:armv7-v{{ .Major }}"
