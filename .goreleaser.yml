@@ -74,7 +74,7 @@ dockers:
     build_flag_templates:
       - '--platform=linux/arm/v7'
     image_templates:
-      - "greatbody/webdav:armv7-latest"
-      - "greatbody/webdav:armv7-{{ .Tag }}"
-      - "greatbody/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
-      - "greatbody/webdav:armv7-v{{ .Major }}"
+      - "greatbody/webdav:latest"
+      - "greatbody/webdav:{{ .Tag }}"
+      - "greatbody/webdav:v{{ .Major }}.{{ .Minor }}"
+      - "greatbody/webdav:v{{ .Major }}"
