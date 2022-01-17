@@ -61,10 +61,10 @@ dockers:
     goarm: ""
     use: buildx
     image_templates:
-      - "greatbody/webdav:amd64-latest"
-      - "greatbody/webdav:amd64-{{ .Tag }}"
-      - "greatbody/webdav:amd64-v{{ .Major }}.{{ .Minor }}"
-      - "greatbody/webdav:amd64-v{{ .Major }}"
+      - "hacdias/webdav:amd64-latest"
+      - "hacdias/webdav:amd64-{{ .Tag }}"
+      - "hacdias/webdav:amd64-v{{ .Major }}.{{ .Minor }}"
+      - "hacdias/webdav:amd64-v{{ .Major }}"
   - goos: linux
     goarch: arm
     goarm: 7
@@ -72,16 +72,16 @@ dockers:
     build_flag_templates:
       - "--platform=linux/arm/v7"
     image_templates:
-      - "greatbody/webdav:armv7-latest"
-      - "greatbody/webdav:armv7-{{ .Tag }}"
-      - "greatbody/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
-      - "greatbody/webdav:armv7-v{{ .Major }}"
+      - "hacdias/webdav:armv7-latest"
+      - "hacdias/webdav:armv7-{{ .Tag }}"
+      - "hacdias/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
+      - "hacdias/webdav:armv7-v{{ .Major }}"
 docker_manifests:
-  - name_template: greatbody/webdav:latest
+  - name_template: hacdias/webdav:latest
     image_templates:
-      - greatbody/webdav:amd64-latest
-      - greatbody/webdav:armv7-latest
-  - name_template: greatbody/webdav:{{ .Tag }}
+      - hacdias/webdav:amd64-latest
+      - hacdias/webdav:armv7-latest
+  - name_template: hacdias/webdav:{{ .Tag }}
     image_templates:
-      - greatbody/webdav:amd64-{{ .Tag }}
-      - greatbody/webdav:armv7-{{ .Tag }}
+      - hacdias/webdav:amd64-{{ .Tag }}
+      - hacdias/webdav:armv7-{{ .Tag }}
