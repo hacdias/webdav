@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  workflow_dispatch:
 
 jobs:
   release:
@@ -56,6 +57,10 @@ jobs:
         echo "::set-output name=tag_minor::${TAG_MINOR}"
         echo "::set-output name=tag_patch::${TAG_PATCH}"
         echo "::set-output name=tag_special::${TAG_SPECIAL}"
+
+    - name: Check docker
+      run: |
+        docker version
 
     - name: Cache the build cache
       uses: actions/cache@v2
