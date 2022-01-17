@@ -85,3 +85,7 @@ docker_manifests:
     image_templates:
       - hacdias/webdav:amd64-{{ .Tag }}
       - hacdias/webdav:armv7-{{ .Tag }}
+  - name_template: hacdias/webdav:v{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - hacdias/webdav:amd64-v{{ .Major }}.{{ .Minor }}
+      - hacdias/webdav:armv7-v{{ .Major }}.{{ .Minor }}
