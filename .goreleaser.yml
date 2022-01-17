@@ -62,10 +62,10 @@ dockers:
     goarch: amd64
     goarm: ''
     image_templates:
-      - "greatbody/webdav:latest"
-      - "greatbody/webdav:{{ .Tag }}"
-      - "greatbody/webdav:v{{ .Major }}.{{ .Minor }}"
-      - "greatbody/webdav:v{{ .Major }}"
+      - "greatbody/webdav:amd64-latest"
+      - "greatbody/webdav:amd64-{{ .Tag }}"
+      - "greatbody/webdav:amd64-v{{ .Major }}.{{ .Minor }}"
+      - "greatbody/webdav:amd64-v{{ .Major }}"
   -
     goos: linux
     goarch: arm
@@ -81,5 +81,5 @@ dockers:
 docker_manifests:
 - name_template: greatbody/webdav:{{ .Major }}.{{ .Minor }}
   image_templates:
-  - greatbody/webdav:{{ .Major }}.{{ .Minor }}
+  - greatbody/webdav:amd64-{{ .Major }}.{{ .Minor }}
   - greatbody/webdav:armv7-{{ .Major }}.{{ .Minor }}
