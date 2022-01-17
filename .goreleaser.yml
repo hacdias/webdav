@@ -76,6 +76,7 @@ dockers:
       - "hacdias/webdav:armv7-{{ .Tag }}"
       - "hacdias/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
       - "hacdias/webdav:armv7-v{{ .Major }}"
+
 docker_manifests:
   - name_template: hacdias/webdav:latest
     image_templates:
