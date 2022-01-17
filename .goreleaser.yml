@@ -61,6 +61,7 @@ dockers:
     goos: linux
     goarch: amd64
     goarm: ''
+    use: buildx
     image_templates:
       - "greatbody/webdav:amd64-latest"
       - "greatbody/webdav:amd64-{{ .Tag }}"
