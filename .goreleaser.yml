@@ -80,7 +80,7 @@ dockers:
       - "greatbody/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
       - "greatbody/webdav:armv7-v{{ .Major }}"
 docker_manifests:
-- name_template: greatbody/webdav:{{ .Major }}.{{ .Minor }}
+- name_template: greatbody/webdav:latest
   image_templates:
-  - greatbody/webdav:amd64-{{ .Major }}.{{ .Minor }}
-  - greatbody/webdav:armv7-{{ .Major }}.{{ .Minor }}
+  - greatbody/webdav:amd64-latest
+  - greatbody/webdav:armv7-latest
