@@ -84,3 +84,7 @@ docker_manifests:
   image_templates:
   - greatbody/webdav:amd64-latest
   - greatbody/webdav:armv7-latest
+- name_template: greatbody/webdav:{{ .Tag }}
+  image_templates:
+  - greatbody/webdav:amd64-{{ .Tag }}
+  - greatbody/webdav:armv7-{{ .Tag }}
