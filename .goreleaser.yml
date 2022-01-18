@@ -42,8 +42,7 @@ build:
       goarm: 6
 
 archives:
-  -
-    name_template: "{{.Os}}-{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}-{{ .ProjectName }}"
+  - name_template: "{{.Os}}-{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}-{{ .ProjectName }}"
     format: tar.gz
     format_overrides:
       - goos: windows
@@ -57,12 +56,56 @@ release:
   prerelease: auto
 
 dockers:
-  -
-    goos: linux
+  - goos: linux
     goarch: amd64
-    goarm: ''
+    goarm: ""
+    use: buildx
     image_templates:
-      - "hacdias/webdav:latest"
-      - "hacdias/webdav:{{ .Tag }}"
-      - "hacdias/webdav:v{{ .Major }}.{{ .Minor }}"
-      - "hacdias/webdav:v{{ .Major }}"
+      - "hacdias/webdav:amd64-latest"
+      - "hacdias/webdav:amd64-{{ .Tag }}"
+      - "hacdias/webdav:amd64-v{{ .Major }}.{{ .Minor }}"
+      - "hacdias/webdav:amd64-v{{ .Major }}"
+  - goos: linux
+    goarch: arm
+    goarm: 7
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm/v7"
+    image_templates:
+      - "hacdias/webdav:armv7-latest"
+      - "hacdias/webdav:armv7-{{ .Tag }}"
+      - "hacdias/webdav:armv7-v{{ .Major }}.{{ .Minor }}"
+      - "hacdias/webdav:armv7-v{{ .Major }}"
+  - goos: linux
+    goarch: arm64
+    goarm: ""
+    use: buildx
+    build_flag_templates:
+      - "--platform=linux/arm64"
+    image_templates:
+      - "hacdias/webdav:arm64-latest"
+      - "hacdias/webdav:arm64-{{ .Tag }}"
+      - "hacdias/webdav:arm64-v{{ .Major }}.{{ .Minor }}"
+      - "hacdias/webdav:arm64-v{{ .Major }}"
+
+docker_manifests:
+  - name_template: hacdias/webdav:latest
+    image_templates:
+      - hacdias/webdav:amd64-latest
+      - hacdias/webdav:armv7-latest
+      - hacdias/webdav:arm64-latest
+  - name_template: hacdias/webdav:{{ .Tag }}
+    image_templates:
+      - hacdias/webdav:amd64-{{ .Tag }}
+      - hacdias/webdav:armv7-{{ .Tag }}
+      - hacdias/webdav:arm64-{{ .Tag }}
+  - name_template: hacdias/webdav:v{{ .Major }}.{{ .Minor }}
+    image_templates:
+      - hacdias/webdav:amd64-v{{ .Major }}.{{ .Minor }}
+      - hacdias/webdav:armv7-v{{ .Major }}.{{ .Minor }}
+      - hacdias/webdav:arm64-v{{ .Major }}.{{ .Minor }}
+  - name_template: hacdias/webdav:v{{ .Major }}
+    image_templates:
+      - hacdias/webdav:amd64-v{{ .Major }}
+      - hacdias/webdav:armv7-v{{ .Major }}
+      - hacdias/webdav:arm64-v{{ .Major }}
