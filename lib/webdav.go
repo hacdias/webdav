@@ -22,6 +22,7 @@ type CorsCfg struct {
 type Config struct {
 	*User
 	Auth      bool
+	Debug     bool
 	NoSniff   bool
 	Cors      CorsCfg
 	Users     map[string]*User
@@ -107,17 +108,14 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	noModification := r.Method == "GET" ||
-		r.Method == "HEAD" ||
-		r.Method == "OPTIONS" ||
-		r.Method == "PROPFIND" ||
-		r.Method == "PUT" ||
-		r.Method == "LOCK" ||
-		r.Method == "UNLOCK" ||
-		r.Method == "MOVE" ||
-		r.Method == "DELETE"
+	noModification := r.Method == "GET" || r.Method == "HEAD" ||
+		r.Method == "OPTIONS" || r.Method == "PROPFIND"
 
-	if !u.Allowed(r.URL.Path, noModification) {
+	allowed := u.Allowed(r.URL.Path, noModification)
+
+	zap.L().Debug("allowed & method & path", zap.Bool("allowed", allowed), zap.String("method", r.Method), zap.String("path", r.URL.Path))
+
+	if !allowed {
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}

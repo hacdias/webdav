@@ -190,6 +190,7 @@ func readConfig(flags *pflag.FlagSet) *lib.Config {
 				LockSystem: webdav.NewMemLS(),
 			},
 		},
+		Debug:   getOptB(flags, "debug"),
 		Auth:    getOptB(flags, "auth"),
 		NoSniff: getOptB(flags, "nosniff"),
 		Cors: lib.CorsCfg{
