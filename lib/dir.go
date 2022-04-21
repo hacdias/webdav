@@ -32,7 +32,9 @@ type WebDavDir struct {
 func (d WebDavDir) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 	//check if show the directory
 	user := ctx.Value("currentUser").(*User)
-	if !user.Allowed("/"+name, true) {
+	prefix := user.Handler.Prefix
+
+	if !user.Allowed(filepath.Join(prefix, name), true) {
 		return nil, filepath.SkipDir
 	}
 
