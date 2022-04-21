@@ -2,11 +2,11 @@ package lib
 
 import (
 	"context"
+	"golang.org/x/net/webdav"
 	"mime"
 	"os"
 	"path"
-
-	"golang.org/x/net/webdav"
+	"path/filepath"
 )
 
 // NoSniffFileInfo wraps any generic FileInfo interface and bypasses mime type sniffing.
@@ -30,6 +30,12 @@ type WebDavDir struct {
 }
 
 func (d WebDavDir) Stat(ctx context.Context, name string) (os.FileInfo, error) {
+	//check if show the directory
+	user := ctx.Value("currentUser").(*User)
+	if !user.Allowed("/"+name, true) {
+		return nil, filepath.SkipDir
+	}
+
 	// Skip wrapping if NoSniff is off
 	if !d.NoSniff {
 		return d.Dir.Stat(ctx, name)
