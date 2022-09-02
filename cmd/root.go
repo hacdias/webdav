@@ -4,6 +4,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -106,6 +108,9 @@ func initConfig() {
 	if cfgFile == "" {
 		v.AddConfigPath(".")
 		v.AddConfigPath("/etc/webdav/")
+		ex, _ := os.Executable()
+		execPath := filepath.Dir(ex)
+		v.AddConfigPath(execPath)
 		v.SetConfigName("config")
 	} else {
 		v.SetConfigFile(cfgFile)
