@@ -4,7 +4,10 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	v "github.com/spf13/viper"
@@ -66,6 +69,20 @@ set WD_CERT.`,
 			lnet = "tcp"
 		}
 		listener, err := net.Listen(lnet, laddr)
+
+		sigc := make(chan os.Signal, 1)
+		signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
+
+		go func(c chan os.Signal) {
+			// Wait for a SIGINT or SIGKILL:
+			sig := <-c
+			log.Printf("Caught signal %s: shutting down.", sig)
+			// Stop listening (and unlink the socket if unix type):
+			listener.Close()
+			// And we're done:
+			os.Exit(0)
+		}(sigc)
+
 		if err != nil {
 			log.Fatal(err)
 		}
