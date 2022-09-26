@@ -1,3 +1,5 @@
+> ⚠️ Disclaimer: this repository is not actively maintained. If you are interested in maintaining it, please [contact me](https://github.com/hacdias/webdav/issues/144).
+
 # webdav
 
 ![Build](https://github.com/hacdias/webdav/workflows/Tests/badge.svg)
