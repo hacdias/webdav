@@ -71,7 +71,7 @@ set WD_CERT.`,
 		listener, err := net.Listen(lnet, laddr)
 
 		sigc := make(chan os.Signal, 1)
-		signal.Notify(sigc, os.Interrupt, os.Kill, syscall.SIGTERM)
+		signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
 
 		go func(c chan os.Signal) {
 			// Wait for a SIGINT or SIGKILL:

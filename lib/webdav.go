@@ -77,19 +77,19 @@ func (c *Config) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		username, password, ok := r.BasicAuth()
 		zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
 		if !ok {
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		user, ok := c.Users[username]
 		if !ok {
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		if !checkPassword(user.Password, password) {
 			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
