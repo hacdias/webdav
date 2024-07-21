@@ -1,6 +1,6 @@
 FROM golang:1.22-alpine3.20 AS build
 
-ARG DOCKER_META_VERSION="untracked"
+ARG VERSION="untracked"
 
 RUN apk --update add ca-certificates
 
@@ -11,7 +11,7 @@ COPY ./go.sum ./
 RUN go mod download
 
 COPY . /webdav/
-RUN go build -o main -ldflags="-X 'github.com/hacdias/webdav/v4/cmd.version=$DOCKER_META_VERSION'" .
+RUN go build -o main -ldflags="-X 'github.com/hacdias/webdav/v4/cmd.version=$VERSION'" .
 
 FROM scratch
 
