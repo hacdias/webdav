@@ -36,6 +36,7 @@ func TestConfigCascade(t *testing.T) {
 	t.Parallel()
 
 	content := `
+auth: true
 scope: /
 modify: true
 rules:
