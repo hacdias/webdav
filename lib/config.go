@@ -63,7 +63,9 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	// Read and unmarshal configuration
 	err := v.ReadInConfig()
 	if err != nil {
-		return nil, err
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, err
+		}
 	}
 
 	cfg := &Config{}
