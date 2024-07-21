@@ -13,7 +13,7 @@ func init() {
 		Use:   "version",
 		Short: "Print the version number",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("WebDAV version: %q", version)
+			fmt.Printf("WebDAV version: %s\n", version)
 		},
 	})
 }
