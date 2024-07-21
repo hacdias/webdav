@@ -1,11 +1,10 @@
-> ⚠️ Disclaimer: this repository is not actively maintained. If you are interested in maintaining it, please [contact me](https://github.com/hacdias/webdav/issues/144).
-
 # webdav
 
-![Build](https://github.com/hacdias/webdav/workflows/Tests/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/hacdias/webdav?style=flat-square)](https://goreportcard.com/report/hacdias/webdav)
 [![Version](https://img.shields.io/github/release/hacdias/webdav.svg?style=flat-square)](https://github.com/hacdias/webdav/releases/latest)
-[![Docker Pulls](https://img.shields.io/docker/pulls/hacdias/webdav)](https://hub.docker.com/r/hacdias/webdav)
+[![Docker Pulls](https://img.shields.io/docker/pulls/hacdias/webdav?style=flat-square)](https://hub.docker.com/r/hacdias/webdav)
+
+A simple and standalone [WebDAV](https://en.wikipedia.org/wiki/WebDAV) server.
 
 ## Install
 
@@ -13,7 +12,7 @@ Please refer to the [Releases page](https://github.com/hacdias/webdav/releases) 
 
 ## Usage
 
-```webdav``` command line interface is really easy to use so you can easily create a WebDAV server for your own user. By default, it runs on a random free port and supports JSON, YAML and TOML configuration. An example of a YAML configuration with the default configurations:
+`webdav` command line interface is really easy to use so you can easily create a WebDAV server for your own user. By default, it runs on a random free port and supports JSON, YAML and TOML configuration. An example of a YAML configuration with the default configurations:
 
 ```yaml
 # Server related settings
@@ -55,7 +54,7 @@ users:
     password: "{env}ENV_PASSWORD"
   - username: basic
     password: basic
-    modify:   false
+    modify: false
     rules:
       - regex: false
         allow: false
@@ -79,17 +78,22 @@ The `allowed_*` properties are optional, the default value for each of them will
 
 ### Reverse Proxy Service
 When you use a reverse proxy implementation like `Nginx` or `Apache`, please note the following fields to avoid causing `502` errors
-```text
+
+```nginx
 location / {
-        proxy_pass http://127.0.0.1:8080;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header REMOTE-HOST $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header Host $http_host;
-        proxy_redirect off;
-    }
+  proxy_pass http://127.0.0.1:8080;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header REMOTE-HOST $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header Host $http_host;
+  proxy_redirect off;
+}
 ```
+
+## Contributing
+
+Feel free to open an issue or a pull request.
 
 ## License
 
-MIT © [Henrique Dias](https://hacdias.com)
+[MIT License](LICENSE) © [Henrique Dias](https://hacdias.com)
