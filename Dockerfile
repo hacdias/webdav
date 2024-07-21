@@ -1,4 +1,4 @@
-FROM golang:1.22-alpine3.20 as build
+FROM golang:1.22-alpine3.20 AS build
 
 ARG DOCKER_META_VERSION="untracked"
 
