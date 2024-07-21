@@ -104,6 +104,10 @@ func (c *Config) Validate() error {
 		return errors.New("invalid config: auth cannot be enabled without users")
 	}
 
+	if !c.Auth && len(c.Users) != 0 {
+		return errors.New("invalid config: auth cannot be disabled with users defined")
+	}
+
 	if c.TLS {
 		if c.Cert == "" {
 			return errors.New("invalid config: Cert must be defined if TLS is activated")
