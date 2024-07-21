@@ -1,4 +1,4 @@
-name:  Create and Publish Docker Image
+name:  Docker
 
 on:
   workflow_dispatch:
@@ -7,9 +7,6 @@ on:
       - 'main'
     tags:
       - 'v*'
-  pull_request:
-    branches:
-      - 'main'
 
 jobs:
   docker:
@@ -63,7 +60,7 @@ jobs:
           context: .
           file: ./Dockerfile
           platforms: linux/amd64,linux/arm64,linux/arm/v7
-          push: ${{ github.event_name != 'pull_request' }}
+          push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: ${{ steps.meta.outputs.args }}
@@ -73,4 +70,4 @@ jobs:
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
           subject-digest: ${{ steps.push.outputs.digest }}
-          push-to-registry: ${{ github.event_name != 'pull_request' }}
+          push-to-registry: true
