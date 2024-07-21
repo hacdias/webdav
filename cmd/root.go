@@ -20,7 +20,7 @@ func init() {
 	flags := rootCmd.Flags()
 	flags.StringP("config", "c", "", "config file path")
 	flags.BoolP("tls", "t", false, "enable TLS")
-	flags.Bool("auth", true, "enable authentication")
+	flags.Bool("auth", false, "enable authentication")
 	flags.String("cert", "cert.pem", "path to TLS certificate")
 	flags.String("key", "key.pem", "path to TLS key")
 	flags.StringP("address", "a", "0.0.0.0", "address to listen on")
@@ -83,7 +83,6 @@ set WD_CERT.`,
 
 		// Trap exiting signals
 		quit := make(chan os.Signal, 1)
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
 		go func() {
 			zap.L().Info("listening", zap.String("address", listener.Addr().String()))
@@ -102,6 +101,7 @@ set WD_CERT.`,
 			quit <- os.Interrupt
 		}()
 
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 		signal := <-quit
 
 		zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
