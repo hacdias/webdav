@@ -31,7 +31,7 @@ type Config struct {
 	Key         string
 	Prefix      string
 	NoSniff     bool
-	LogFormat   string
+	LogFormat   string `mapstructure:"log_format"`
 	Auth        bool
 	CORS        CORS
 	Users       []User
@@ -74,12 +74,12 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Port", DefaultPort)
 	v.SetDefault("Auth", DefaultAuth)
 	v.SetDefault("Prefix", DefaultPrefix)
-	v.SetDefault("LogFormat", DefaultLogFormat)
+	v.SetDefault("Log_Format", DefaultLogFormat)
 
 	// Other defaults
-	v.SetDefault("CORS.AllowedHeaders", []string{"*"})
-	v.SetDefault("CORS.AllowedHosts", []string{"*"})
-	v.SetDefault("CORS.AllowedMethods", []string{"*"})
+	v.SetDefault("CORS.Allowed_Headers", []string{"*"})
+	v.SetDefault("CORS.Allowed_Hosts", []string{"*"})
+	v.SetDefault("CORS.Allowed_Methods", []string{"*"})
 
 	// Read and unmarshal configuration
 	err := v.ReadInConfig()
@@ -172,8 +172,8 @@ func (c *Config) Validate() error {
 type CORS struct {
 	Enabled        bool
 	Credentials    bool
-	AllowedHeaders []string
-	AllowedHosts   []string
-	AllowedMethods []string
-	ExposedHeaders []string
+	AllowedHeaders []string `mapstructure:"allowed_headers"`
+	AllowedHosts   []string `mapstructure:"allowed_hosts"`
+	AllowedMethods []string `mapstructure:"allowed_methods"`
+	ExposedHeaders []string `mapstructure:"exposed_headers"`
 }

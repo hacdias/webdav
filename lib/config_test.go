@@ -142,3 +142,29 @@ rules = [ ]
 		check(t, cfg)
 	})
 }
+
+func TestConfigKeys(t *testing.T) {
+	t.Parallel()
+
+	cfg := writeAndParseConfig(t, `
+cors:
+  enabled: true
+  credentials: true
+  allowed_headers:
+    - Depth
+  allowed_hosts:
+    - http://localhost:8080
+  allowed_methods:
+    - GET
+  exposed_headers:
+    - Content-Length
+    - Content-Range`, ".yml")
+	require.NoError(t, cfg.Validate())
+
+	require.True(t, cfg.CORS.Enabled)
+	require.True(t, cfg.CORS.Credentials)
+	require.EqualValues(t, []string{"Content-Length", "Content-Range"}, cfg.CORS.ExposedHeaders)
+	require.EqualValues(t, []string{"Depth"}, cfg.CORS.AllowedHeaders)
+	require.EqualValues(t, []string{"http://localhost:8080"}, cfg.CORS.AllowedHosts)
+	require.EqualValues(t, []string{"GET"}, cfg.CORS.AllowedMethods)
+}
