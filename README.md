@@ -157,7 +157,7 @@ location / {
 
 Example configuration of a [`systemd`](https://en.wikipedia.org/wiki/Systemd) service:
 
-```toml
+```conf
 [Unit]
 Description=WebDAV
 After=network.target
