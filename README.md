@@ -8,16 +8,55 @@ A simple and standalone [WebDAV](https://en.wikipedia.org/wiki/WebDAV) server.
 
 ## Install
 
-Please refer to the [Releases page](https://github.com/hacdias/webdav/releases) for more information. There, you can either download the binaries or find the Docker commands to install WebDAV.
+For a manual install, please refer to the [releases](https://github.com/hacdias/webdav/releases) page and download the correct binary for your system. Alternatively, you can build or install it from source using the Go toolchain. You can either clone the repository and execute `go build`, or directly install it, using:
+
+```
+go install github.com/hacdias/webdav/v4@latest
+```
+
+### Docker
+
+Docker images are provided on both [GitHub's registry](https://github.com/hacdias/webdav/pkgs/container/webdav) and [Docker Hub](https://hub.docker.com/r/hacdias/webdav). You can pull the images using one of the following two commands. Note that this commands pull the latest released version. You can use specific tags to pin specific versions, or use `main` for the development branch.
+
+```bash
+# GitHub Registry
+docker pull ghcr.io/hacdias/webdav:latest
+
+# Docker Hub
+docker pull hacdias/webdav:latest
+```
 
 ## Usage
+
+For usage information regarding the CLI, run `webdav --help`.
+
+### Docker
+
+To use with Docker, you need to provide a configuration file and mount the data directories. For example, let's take the following configuration file that simply sets the port to `6060` and the scope to `/data`.
+
+```yaml
+port: 6060
+scope: /data
+```
+
+You can now run with the following Docker command, where you mount the configuration file inside the container, and the data directory too, as well as forwarding the port 6060. You will need to change this to match your own configuration.
+
+```bash
+docker run \
+  -p 6060:6060 \
+  -v $(pwd)/config.yml:/config.yml:ro \
+  -v $(pwd)/data:/data \
+  ghcr.io/hacdias/webdav -c /config.yml
+```
+
+## Configuration
 
 `webdav` command line interface is really easy to use so you can easily create a WebDAV server for your own user. By default, it runs on a random free port and supports JSON, YAML and TOML configuration. An example of a YAML configuration with the default configurations:
 
 ```yaml
-# Server related settings
 address: 0.0.0.0
 port: 0
+
 auth: true
 tls: false
 cert: cert.pem
@@ -63,11 +102,6 @@ users:
         modify: true
 ```
 
-There are more ways to customize how you run WebDAV through flags and environment variables. Please run `webdav --help` for more information on that.
-
-### Systemd
-
-An example of how to use this with `systemd` is on [webdav.service.example](/webdav.service.example).
 
 ### CORS
 
@@ -76,8 +110,11 @@ The `allowed_*` properties are optional, the default value for each of them will
 1. Use `withCredentials = true` in javascript.
 2. Use the `username:password@host` syntax.
 
+## Caveats
+
 ### Reverse Proxy Service
-When you use a reverse proxy implementation like `Nginx` or `Apache`, please note the following fields to avoid causing `502` errors
+
+When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct headers in order to avoid 502 errors. Here's a Nginx configuration example:
 
 ```nginx
 location / {
@@ -88,6 +125,27 @@ location / {
   proxy_set_header Host $http_host;
   proxy_redirect off;
 }
+```
+
+## Examples
+
+### Systemd
+
+Example configuration of a [`systemd`](https://en.wikipedia.org/wiki/Systemd) service:
+
+```toml
+[Unit]
+Description=WebDAV
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/bin/webdav --config /opt/webdav.yml
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
 ```
 
 ## Contributing
