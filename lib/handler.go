@@ -15,7 +15,6 @@ type handlerUser struct {
 }
 
 type Handler struct {
-	*Config
 	user  *handlerUser
 	users map[string]*handlerUser
 }
@@ -70,7 +69,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user := h.user
 
 	// Authentication
-	if h.Auth {
+	if len(h.users) > 0 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
 		// Gets the correct user for this request.
