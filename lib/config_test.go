@@ -27,6 +27,14 @@ func TestConfigDefaults(t *testing.T) {
 	cfg := writeAndParseConfig(t, "", ".yml")
 	require.NoError(t, cfg.Validate())
 
+	require.EqualValues(t, DefaultAuth, cfg.Auth)
+	require.EqualValues(t, DefaultTLS, cfg.TLS)
+	require.EqualValues(t, DefaultAddress, cfg.Address)
+	require.EqualValues(t, DefaultPort, cfg.Port)
+	require.EqualValues(t, DefaultPrefix, cfg.Prefix)
+	require.EqualValues(t, DefaultLogFormat, cfg.LogFormat)
+	require.NotEmpty(t, cfg.Scope)
+
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedMethods)

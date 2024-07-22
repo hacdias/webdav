@@ -10,6 +10,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+const (
+	DefaultTLS       = false
+	DefaultAuth      = false
+	DefaultCert      = "cert.pem"
+	DefaultKey       = "key.pem"
+	DefaultAddress   = "0.0.0.0"
+	DefaultPort      = 0
+	DefaultPrefix    = "/"
+	DefaultLogFormat = "console"
+)
+
 type Config struct {
 	Permissions `mapstructure:",squash"`
 	Debug       bool
@@ -55,7 +66,17 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
 
-	// Defaults
+	// Defaults shared with flags
+	v.SetDefault("TLS", DefaultTLS)
+	v.SetDefault("Cert", DefaultCert)
+	v.SetDefault("Key", DefaultKey)
+	v.SetDefault("Address", DefaultAddress)
+	v.SetDefault("Port", DefaultPort)
+	v.SetDefault("Auth", DefaultAuth)
+	v.SetDefault("Prefix", DefaultPrefix)
+	v.SetDefault("LogFormat", DefaultLogFormat)
+
+	// Other defaults
 	v.SetDefault("CORS.AllowedHeaders", []string{"*"})
 	v.SetDefault("CORS.AllowedHosts", []string{"*"})
 	v.SetDefault("CORS.AllowedMethods", []string{"*"})
@@ -106,6 +127,11 @@ func (c *Config) Validate() error {
 
 	if !c.Auth && len(c.Users) != 0 {
 		return errors.New("invalid config: auth cannot be disabled with users defined")
+	}
+
+	c.Scope, err = filepath.Abs(c.Scope)
+	if err != nil {
+		return fmt.Errorf("invalid config: %w", err)
 	}
 
 	if c.TLS {
