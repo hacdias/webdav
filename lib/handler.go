@@ -106,7 +106,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "HEAD" {
-		w = newResponseWriterNoBody(w)
+		w = responseWriterNoBody{w}
 	}
 
 	// Excerpt from RFC4918, section 9.4:
@@ -129,4 +129,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Runs the WebDAV.
 	user.ServeHTTP(w, r)
+}
+
+type responseWriterNoBody struct {
+	http.ResponseWriter
+}
+
+func (w responseWriterNoBody) Write(data []byte) (int, error) {
+	return 0, nil
 }
