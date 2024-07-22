@@ -51,23 +51,66 @@ docker run \
 
 ## Configuration
 
-`webdav` command line interface is really easy to use so you can easily create a WebDAV server for your own user. By default, it runs on a random free port and supports JSON, YAML and TOML configuration. An example of a YAML configuration with the default configurations:
+The configuration can be provided as a YAML, JSON or TOML file. Below is an example of a YAML configuration file with all the options available, as well as what they mean.
 
 ```yaml
 address: 0.0.0.0
 port: 0
 
-auth: true
+# TLS-related settings if you want to enable TLS directly.
 tls: false
 cert: cert.pem
 key: key.pem
+
+# Prefix to apply to the WebDAV path-ing. Default is "/".
 prefix: /
+
+# Enable or disable debug logging. Default is false.
 debug: false
 
-# Default user settings (will be merged)
-scope: .
+# Whether or not to have authentication. With authentication on, you need to
+# define one or more users. Default is false.
+auth: true
+
+# The directory that will be able to be accessed by the users when connecting.
+# This directory will be used by users unless they have their own 'scope' defined.
+# Default is "/".
+scope: /
+
+# Whether the users can, by default, modify the contents. Default is false.
 modify: true
+
+# Default permissions rules to apply at the paths.
 rules: []
+
+# The list of users. Must be defined if auth is set to true.
+users:
+  # Example 'admin' user with plaintext password.
+  - username: admin
+    password: admin
+  # Example 'john' user with bcrypt encrypted password, with custom scope.
+  - username: john
+    password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
+    scope: /another/path
+  # Example user whose details will be picked up from the environment.
+  - username: "{env}ENV_USERNAME"
+    password: "{env}ENV_PASSWORD"
+  - username: basic
+    password: basic
+    # Override default modify.
+    modify: false
+    rules:
+      # With this rule, the user CANNOT access /some/files.
+      - path: /some/file
+        allow: false
+      # With this rule, the user CAN modify /public/access.
+      - path: /public/access/
+        modify: true
+      # With this rule, the user CAN modify all files ending with .js. It uses
+      # a regular expression.
+      - path: "^*.js$"
+        regex: true
+        modify: true
 
 # CORS configuration
 cors:
@@ -82,26 +125,7 @@ cors:
   exposed_headers:
     - Content-Length
     - Content-Range
-
-users:
-  - username: admin
-    password: admin
-    scope: /a/different/path
-  - username: encrypted
-    password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
-  - username: "{env}ENV_USERNAME"
-    password: "{env}ENV_PASSWORD"
-  - username: basic
-    password: basic
-    modify: false
-    rules:
-      - regex: false
-        allow: false
-        path: /some/file
-      - path: /public/access/
-        modify: true
 ```
-
 
 ### CORS
 
