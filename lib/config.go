@@ -16,7 +16,7 @@ const (
 	DefaultCert      = "cert.pem"
 	DefaultKey       = "key.pem"
 	DefaultAddress   = "0.0.0.0"
-	DefaultPort      = 0
+	DefaultPort      = 6065
 	DefaultPrefix    = "/"
 	DefaultLogFormat = "console"
 )
@@ -77,6 +77,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("LogFormat", DefaultLogFormat)
 
 	// Other defaults
+	v.SetDefault("Scope", ".")
 	v.SetDefault("CORS.AllowedHeaders", []string{"*"})
 	v.SetDefault("CORS.AllowedHosts", []string{"*"})
 	v.SetDefault("CORS.AllowedMethods", []string{"*"})

@@ -18,7 +18,6 @@ FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /webdav/main /bin/webdav
 
-EXPOSE 80
+EXPOSE 6065
 
 ENTRYPOINT [ "webdav" ]
-CMD [ "-p", "80" ]
