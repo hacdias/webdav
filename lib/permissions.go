@@ -31,6 +31,7 @@ func (r *Rule) Validate() error {
 		}
 		r.Regexp = rp
 		r.Path = ""
+		r.Regex = false
 	}
 
 	return nil
@@ -38,7 +39,7 @@ func (r *Rule) Validate() error {
 
 // Matches checks if [Rule] matches the given path.
 func (r *Rule) Matches(path string) bool {
-	if r.Regex {
+	if r.Regexp != nil {
 		return r.Regexp.MatchString(path)
 	}
 

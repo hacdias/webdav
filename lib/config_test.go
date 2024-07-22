@@ -133,7 +133,7 @@ username = "basic"
 password = "basic"
 scope = "/basic"
 modify = false
-rules = [ ]
+rules = []
 `
 
 		cfg := writeAndParseConfig(t, content, ".toml")
@@ -167,4 +167,31 @@ cors:
 	require.EqualValues(t, []string{"Depth"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"http://localhost:8080"}, cfg.CORS.AllowedHosts)
 	require.EqualValues(t, []string{"GET"}, cfg.CORS.AllowedMethods)
+}
+
+func TestConfigRules(t *testing.T) {
+	content := `
+auth: false
+scope: /
+modify: true
+rules:
+  - path: '^.+\.js$'
+    regex: true
+    modify: true
+  - path: /public/access/
+    regex: false
+    modify: true`
+
+	cfg := writeAndParseConfig(t, content, ".yaml")
+	require.NoError(t, cfg.Validate())
+
+	require.Len(t, cfg.Rules, 2)
+
+	require.Empty(t, cfg.Rules[0].Path)
+	require.NotNil(t, cfg.Rules[0].Regexp)
+	require.True(t, cfg.Rules[0].Regexp.MatchString("/my/path/to/file.js"))
+	require.False(t, cfg.Rules[0].Regexp.MatchString("/my/path/to/file.ts"))
+
+	require.NotEmpty(t, cfg.Rules[1].Path)
+	require.Nil(t, cfg.Rules[1].Regexp)
 }
