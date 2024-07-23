@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -101,7 +102,11 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	}
 
 	cfg := &Config{}
-	err = v.Unmarshal(cfg)
+	err = v.Unmarshal(cfg, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+		mapstructure.TextUnmarshallerHookFunc(),
+	)))
 	if err != nil {
 		return nil, err
 	}

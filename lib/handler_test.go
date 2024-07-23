@@ -161,8 +161,7 @@ users:
   - username: basic
     password: basic
     rules:
-    - path: "^.+.js$"
-      regex: true
+    - regex: "^.+.js$"
       modify: false
     - path: "/b"
       modify: false

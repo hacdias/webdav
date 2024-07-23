@@ -108,8 +108,7 @@ users:
         modify: true
       # With this rule, the user CAN modify all files ending with .js. It uses
       # a regular expression.
-      - path: "^*.js$"
-        regex: true
+      - regex: "^.+\.js$"
         modify: true
 
 # CORS configuration

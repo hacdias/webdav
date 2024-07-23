@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -15,23 +16,15 @@ var readMethods = []string{
 }
 
 type Rule struct {
-	Regex  bool
 	Allow  bool
 	Modify bool
 	Path   string
-	// TODO: remove Regex and replace by this. It encodes
-	Regexp *regexp.Regexp `mapstructure:"-"`
+	Regex  *regexp.Regexp
 }
 
 func (r *Rule) Validate() error {
-	if r.Regex {
-		rp, err := regexp.Compile(r.Path)
-		if err != nil {
-			return fmt.Errorf("invalid rule: %w", err)
-		}
-		r.Regexp = rp
-		r.Path = ""
-		r.Regex = false
+	if r.Regex != nil && r.Path != "" {
+		return errors.New("invalid rule: cannot define both regex and path")
 	}
 
 	return nil
@@ -39,8 +32,8 @@ func (r *Rule) Validate() error {
 
 // Matches checks if [Rule] matches the given path.
 func (r *Rule) Matches(path string) bool {
-	if r.Regexp != nil {
-		return r.Regexp.MatchString(path)
+	if r.Regex != nil {
+		return r.Regex.MatchString(path)
 	}
 
 	return strings.HasPrefix(path, r.Path)
