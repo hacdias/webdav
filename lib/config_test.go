@@ -176,11 +176,9 @@ auth: false
 scope: /
 modify: true
 rules:
-  - path: '^.+\.js$'
-    regex: true
+  - regex: '^.+\.js$'
     modify: true
   - path: /public/access/
-    regex: false
     modify: true`
 
 	cfg := writeAndParseConfig(t, content, ".yaml")
@@ -189,12 +187,12 @@ rules:
 	require.Len(t, cfg.Rules, 2)
 
 	require.Empty(t, cfg.Rules[0].Path)
-	require.NotNil(t, cfg.Rules[0].Regexp)
-	require.True(t, cfg.Rules[0].Regexp.MatchString("/my/path/to/file.js"))
-	require.False(t, cfg.Rules[0].Regexp.MatchString("/my/path/to/file.ts"))
+	require.NotNil(t, cfg.Rules[0].Regex)
+	require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
+	require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
 
 	require.NotEmpty(t, cfg.Rules[1].Path)
-	require.Nil(t, cfg.Rules[1].Regexp)
+	require.Nil(t, cfg.Rules[1].Regex)
 }
 
 func TestConfigEnv(t *testing.T) {
