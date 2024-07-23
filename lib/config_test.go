@@ -28,7 +28,6 @@ func TestConfigDefaults(t *testing.T) {
 	cfg := writeAndParseConfig(t, "", ".yml")
 	require.NoError(t, cfg.Validate())
 
-	require.EqualValues(t, DefaultAuth, cfg.Auth)
 	require.EqualValues(t, DefaultTLS, cfg.TLS)
 	require.EqualValues(t, DefaultAddress, cfg.Address)
 	require.EqualValues(t, DefaultPort, cfg.Port)
@@ -65,7 +64,6 @@ func TestConfigCascade(t *testing.T) {
 
 	t.Run("YAML", func(t *testing.T) {
 		content := `
-auth: true
 scope: /
 modify: true
 rules:
@@ -89,7 +87,6 @@ users:
 
 	t.Run("JSON", func(t *testing.T) {
 		content := `{
-	"auth": true,
 	"scope": "/",
 	"modify": true,
 	"rules": [
@@ -120,7 +117,7 @@ users:
 	})
 
 	t.Run("`TOML", func(t *testing.T) {
-		content := `auth = true
+		content := `
 scope = "/"
 modify = true
 
@@ -175,7 +172,6 @@ cors:
 
 func TestConfigRules(t *testing.T) {
 	content := `
-auth: false
 scope: /
 modify: true
 rules:

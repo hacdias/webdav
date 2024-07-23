@@ -9,6 +9,7 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
+	"go.uber.org/zap"
 )
 
 const (
@@ -17,7 +18,6 @@ const (
 	DefaultDebug     = false
 	DefaultNoSniff   = false
 	DefaultTLS       = false
-	DefaultAuth      = false
 	DefaultCert      = "cert.pem"
 	DefaultKey       = "key.pem"
 	DefaultAddress   = "0.0.0.0"
@@ -37,7 +37,6 @@ type Config struct {
 	Prefix      string
 	NoSniff     bool
 	LogFormat   string `mapstructure:"log_format"`
-	Auth        bool
 	CORS        CORS
 	Users       []User
 }
@@ -84,7 +83,6 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Key", DefaultKey)
 	v.SetDefault("Address", DefaultAddress)
 	v.SetDefault("Port", DefaultPort)
-	v.SetDefault("Auth", DefaultAuth)
 	v.SetDefault("Prefix", DefaultPrefix)
 	v.SetDefault("Log_Format", DefaultLogFormat)
 
@@ -137,12 +135,8 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 func (c *Config) Validate() error {
 	var err error
 
-	if c.Auth && len(c.Users) == 0 {
-		return errors.New("invalid config: auth cannot be enabled without users")
-	}
-
-	if !c.Auth && len(c.Users) != 0 {
-		return errors.New("invalid config: auth cannot be disabled with users defined")
+	if len(c.Users) == 0 {
+		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
 	}
 
 	c.Scope, err = filepath.Abs(c.Scope)

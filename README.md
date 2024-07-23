@@ -70,10 +70,6 @@ prefix: /
 # Enable or disable debug logging. Default is false.
 debug: false
 
-# Whether or not to have authentication. With authentication on, you need to
-# define one or more users. Default is false.
-auth: true
-
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'scope' defined.
 # Default is "." (current directory).
@@ -85,7 +81,7 @@ modify: true
 # Default permissions rules to apply at the paths.
 rules: []
 
-# The list of users. Must be defined if auth is set to true.
+# The list of users. If users is empty, then there will be no authentication.
 users:
   # Example 'admin' user with plaintext password.
   - username: admin
