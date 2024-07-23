@@ -90,7 +90,6 @@ func TestServerAuthentication(t *testing.T) {
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
-auth: true
 scope: %s
 modify: true
 
@@ -153,7 +152,6 @@ func TestServerRules(t *testing.T) {
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
-auth: true
 scope: %s
 modify: true
 
@@ -196,7 +194,6 @@ func TestServerPermissions(t *testing.T) {
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
-auth: true
 scope: %s
 modify: true
 
