@@ -55,7 +55,7 @@ The configuration can be provided as a YAML, JSON or TOML file. Below is an exam
 
 ```yaml
 address: 0.0.0.0
-port: 0
+port: 6065
 
 # TLS-related settings if you want to enable TLS directly.
 tls: false
@@ -74,8 +74,8 @@ auth: true
 
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'scope' defined.
-# Default is "/".
-scope: /
+# Default is "." (current directory).
+scope: .
 
 # Whether the users can, by default, modify the contents. Default is false.
 modify: true

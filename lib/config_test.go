@@ -34,7 +34,10 @@ func TestConfigDefaults(t *testing.T) {
 	require.EqualValues(t, DefaultPort, cfg.Port)
 	require.EqualValues(t, DefaultPrefix, cfg.Prefix)
 	require.EqualValues(t, DefaultLogFormat, cfg.LogFormat)
-	require.NotEmpty(t, cfg.Scope)
+
+	dir, err := os.Getwd()
+	require.NoError(t, err)
+	require.Equal(t, dir, cfg.Scope)
 
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)

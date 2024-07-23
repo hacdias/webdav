@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	DefaultScope     = "/"
+	DefaultScope     = "."
 	DefaultModify    = false
 	DefaultDebug     = false
 	DefaultNoSniff   = false
@@ -21,7 +21,7 @@ const (
 	DefaultCert      = "cert.pem"
 	DefaultKey       = "key.pem"
 	DefaultAddress   = "0.0.0.0"
-	DefaultPort      = 0
+	DefaultPort      = 6065
 	DefaultPrefix    = "/"
 	DefaultLogFormat = "console"
 )
