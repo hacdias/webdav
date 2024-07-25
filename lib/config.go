@@ -67,6 +67,9 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.AutomaticEnv()
 
 	// Defaults shared with flags
+	v.SetDefault("Scope", "/")
+	v.SetDefault("Modify", false)
+	v.SetDefault("Debug", false)
 	v.SetDefault("TLS", DefaultTLS)
 	v.SetDefault("Cert", DefaultCert)
 	v.SetDefault("Key", DefaultKey)
