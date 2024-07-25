@@ -11,6 +11,10 @@ import (
 )
 
 const (
+	DefaultScope     = "/"
+	DefaultModify    = false
+	DefaultDebug     = false
+	DefaultNoSniff   = false
 	DefaultTLS       = false
 	DefaultAuth      = false
 	DefaultCert      = "cert.pem"
@@ -65,8 +69,15 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetEnvPrefix("wd")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	// TODO: use new env struct bind feature when it's released in viper.
+	// This should make it redundant to set defaults for things that are
+	// empty or false.
 
 	// Defaults shared with flags
+	v.SetDefault("Scope", DefaultScope)
+	v.SetDefault("Modify", DefaultModify)
+	v.SetDefault("Debug", DefaultDebug)
+	v.SetDefault("NoSniff", DefaultNoSniff)
 	v.SetDefault("TLS", DefaultTLS)
 	v.SetDefault("Cert", DefaultCert)
 	v.SetDefault("Key", DefaultKey)
