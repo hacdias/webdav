@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -194,4 +195,25 @@ rules:
 
 	require.NotEmpty(t, cfg.Rules[1].Path)
 	require.Nil(t, cfg.Rules[1].Regexp)
+}
+
+func TestConfigEnv(t *testing.T) {
+	require.NoError(t, os.Setenv("WD_PORT", "1234"))
+	require.NoError(t, os.Setenv("WD_DEBUG", "true"))
+	require.NoError(t, os.Setenv("WD_MODIFY", "true"))
+	require.NoError(t, os.Setenv("WD_SCOPE", "/test"))
+
+	cfg, err := ParseConfig("", nil)
+	require.NoError(t, err)
+
+	assert.Equal(t, 1234, cfg.Port)
+	assert.Equal(t, "/test", cfg.Scope)
+	assert.Equal(t, true, cfg.Debug)
+	assert.Equal(t, true, cfg.Modify)
+
+	// Reset
+	require.NoError(t, os.Setenv("WD_PORT", ""))
+	require.NoError(t, os.Setenv("WD_DEBUG", ""))
+	require.NoError(t, os.Setenv("WD_MODIFY", ""))
+	require.NoError(t, os.Setenv("WD_SCOPE", ""))
 }
