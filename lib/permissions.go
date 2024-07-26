@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -40,9 +41,9 @@ func (r *Rule) Matches(path string) bool {
 }
 
 type Permissions struct {
-	Scope  string
-	Modify bool
-	Rules  []*Rule
+	Directory string
+	Modify    bool
+	Rules     []*Rule
 }
 
 // Allowed checks if the user has permission to access a directory/file
@@ -69,6 +70,13 @@ func (p Permissions) Allowed(r *http.Request) bool {
 }
 
 func (p *Permissions) Validate() error {
+	var err error
+
+	p.Directory, err = filepath.Abs(p.Directory)
+	if err != nil {
+		return fmt.Errorf("invalid permissions: %w", err)
+	}
+
 	for _, r := range p.Rules {
 		if err := r.Validate(); err != nil {
 			return fmt.Errorf("invalid permissions: %w", err)

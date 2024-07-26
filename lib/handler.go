@@ -28,7 +28,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 			Handler: webdav.Handler{
 				Prefix: c.Prefix,
 				FileSystem: Dir{
-					Dir:     webdav.Dir(c.Scope),
+					Dir:     webdav.Dir(c.Directory),
 					noSniff: c.NoSniff,
 				},
 				LockSystem: webdav.NewMemLS(),
@@ -43,7 +43,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 			Handler: webdav.Handler{
 				Prefix: c.Prefix,
 				FileSystem: Dir{
-					Dir:     webdav.Dir(u.Scope),
+					Dir:     webdav.Dir(u.Directory),
 					noSniff: c.NoSniff,
 				},
 				LockSystem: webdav.NewMemLS(),
