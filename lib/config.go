@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DefaultScope     = "."
+	DefaultDirectory = "."
 	DefaultModify    = false
 	DefaultDebug     = false
 	DefaultNoSniff   = false
@@ -74,7 +74,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	// empty or false.
 
 	// Defaults shared with flags
-	v.SetDefault("Scope", DefaultScope)
+	v.SetDefault("Directory", DefaultDirectory)
 	v.SetDefault("Modify", DefaultModify)
 	v.SetDefault("Debug", DefaultDebug)
 	v.SetDefault("NoSniff", DefaultNoSniff)
@@ -111,8 +111,8 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 
 	// Cascade user settings
 	for i := range cfg.Users {
-		if !v.IsSet(fmt.Sprintf("Users.%d.Scope", i)) {
-			cfg.Users[i].Scope = cfg.Scope
+		if !v.IsSet(fmt.Sprintf("Users.%d.Directory", i)) {
+			cfg.Users[i].Directory = cfg.Directory
 		}
 
 		if !v.IsSet(fmt.Sprintf("Users.%d.Modify", i)) {
@@ -139,7 +139,7 @@ func (c *Config) Validate() error {
 		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
 	}
 
-	c.Scope, err = filepath.Abs(c.Scope)
+	c.Directory, err = filepath.Abs(c.Directory)
 	if err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}

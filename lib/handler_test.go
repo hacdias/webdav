@@ -50,7 +50,7 @@ func TestServerDefaults(t *testing.T) {
 		"sub/bar.txt": []byte("bar"),
 	})
 
-	srv := makeTestServer(t, "scope: "+dir)
+	srv := makeTestServer(t, "directory: "+dir)
 	client := gowebdav.NewClient(srv.URL, "", "")
 
 	// By default, reading permissions.
@@ -90,7 +90,7 @@ func TestServerAuthentication(t *testing.T) {
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
-scope: %s
+directory: %s
 modify: true
 
 users:
@@ -152,7 +152,7 @@ func TestServerRules(t *testing.T) {
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
-scope: %s
+directory: %s
 modify: true
 
 users:
@@ -194,16 +194,16 @@ func TestServerPermissions(t *testing.T) {
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
-scope: %s
+directory: %s
 modify: true
 
 users:
   - username: a
     password: a
-    scope: %s/a
+    directory: %s/a
   - username: b
     password: b
-    scope: %s/b
+    directory: %s/b
     modify: false
 `, dir, dir, dir))
 

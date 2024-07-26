@@ -36,7 +36,7 @@ func TestConfigDefaults(t *testing.T) {
 
 	dir, err := os.Getwd()
 	require.NoError(t, err)
-	require.Equal(t, dir, cfg.Scope)
+	require.Equal(t, dir, cfg.Directory)
 
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
@@ -48,23 +48,23 @@ func TestConfigCascade(t *testing.T) {
 
 	check := func(t *testing.T, cfg *Config) {
 		require.True(t, cfg.Modify)
-		require.Equal(t, "/", cfg.Scope)
+		require.Equal(t, "/", cfg.Directory)
 		require.Len(t, cfg.Rules, 1)
 
 		require.Len(t, cfg.Users, 2)
 
 		require.True(t, cfg.Users[0].Modify)
-		require.Equal(t, "/", cfg.Users[0].Scope)
+		require.Equal(t, "/", cfg.Users[0].Directory)
 		require.Len(t, cfg.Users[0].Rules, 1)
 
 		require.False(t, cfg.Users[1].Modify)
-		require.Equal(t, "/basic", cfg.Users[1].Scope)
+		require.Equal(t, "/basic", cfg.Users[1].Directory)
 		require.Len(t, cfg.Users[1].Rules, 0)
 	}
 
 	t.Run("YAML", func(t *testing.T) {
 		content := `
-scope: /
+directory: /
 modify: true
 rules:
   - path: /public/access/
@@ -75,7 +75,7 @@ users:
     password: admin
   - username: basic
     password: basic
-    scope: /basic
+    directory: /basic
     modify: false
     rules: []`
 
@@ -87,7 +87,7 @@ users:
 
 	t.Run("JSON", func(t *testing.T) {
 		content := `{
-	"scope": "/",
+	"directory": "/",
 	"modify": true,
 	"rules": [
 		{
@@ -103,7 +103,7 @@ users:
 		{
 			"username": "basic",
 			"password": "basic",
-			"scope": "/basic",
+			"directory": "/basic",
 			"modify": false,
 			"rules": []
 		}
@@ -118,7 +118,7 @@ users:
 
 	t.Run("`TOML", func(t *testing.T) {
 		content := `
-scope = "/"
+directory = "/"
 modify = true
 
 [[rules]]
@@ -132,7 +132,7 @@ password = "admin"
 [[users]]
 username = "basic"
 password = "basic"
-scope = "/basic"
+directory = "/basic"
 modify = false
 rules = []
 `
@@ -172,7 +172,7 @@ cors:
 
 func TestConfigRules(t *testing.T) {
 	content := `
-scope: /
+directory: /
 modify: true
 rules:
   - regex: '^.+\.js$'
@@ -198,13 +198,13 @@ func TestConfigEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("WD_PORT", "1234"))
 	require.NoError(t, os.Setenv("WD_DEBUG", "true"))
 	require.NoError(t, os.Setenv("WD_MODIFY", "true"))
-	require.NoError(t, os.Setenv("WD_SCOPE", "/test"))
+	require.NoError(t, os.Setenv("WD_DIRECTORY", "/test"))
 
 	cfg, err := ParseConfig("", nil)
 	require.NoError(t, err)
 
 	assert.Equal(t, 1234, cfg.Port)
-	assert.Equal(t, "/test", cfg.Scope)
+	assert.Equal(t, "/test", cfg.Directory)
 	assert.Equal(t, true, cfg.Debug)
 	assert.Equal(t, true, cfg.Modify)
 
@@ -212,5 +212,5 @@ func TestConfigEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("WD_PORT", ""))
 	require.NoError(t, os.Setenv("WD_DEBUG", ""))
 	require.NoError(t, os.Setenv("WD_MODIFY", ""))
-	require.NoError(t, os.Setenv("WD_SCOPE", ""))
+	require.NoError(t, os.Setenv("WD_DIRECTORY", ""))
 }

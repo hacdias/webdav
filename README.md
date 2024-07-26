@@ -32,11 +32,11 @@ For usage information regarding the CLI, run `webdav --help`.
 
 ### Docker
 
-To use with Docker, you need to provide a configuration file and mount the data directories. For example, let's take the following configuration file that simply sets the port to `6060` and the scope to `/data`.
+To use with Docker, you need to provide a configuration file and mount the data directories. For example, let's take the following configuration file that simply sets the port to `6060` and the directory to `/data`.
 
 ```yaml
 port: 6060
-scope: /data
+directory: /data
 ```
 
 You can now run with the following Docker command, where you mount the configuration file inside the container, and the data directory too, as well as forwarding the port 6060. You will need to change this to match your own configuration.
@@ -69,9 +69,9 @@ prefix: /
 debug: false
 
 # The directory that will be able to be accessed by the users when connecting.
-# This directory will be used by users unless they have their own 'scope' defined.
+# This directory will be used by users unless they have their own 'directory' defined.
 # Default is "." (current directory).
-scope: .
+directory: .
 
 # Whether the users can, by default, modify the contents. Default is false.
 modify: true
@@ -84,10 +84,10 @@ users:
   # Example 'admin' user with plaintext password.
   - username: admin
     password: admin
-  # Example 'john' user with bcrypt encrypted password, with custom scope.
+  # Example 'john' user with bcrypt encrypted password, with custom directory.
   - username: john
     password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
-    scope: /another/path
+    directory: /another/path
   # Example user whose details will be picked up from the environment.
   - username: "{env}ENV_USERNAME"
     password: "{env}ENV_PASSWORD"
