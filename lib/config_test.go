@@ -32,7 +32,9 @@ func TestConfigDefaults(t *testing.T) {
 	require.EqualValues(t, DefaultAddress, cfg.Address)
 	require.EqualValues(t, DefaultPort, cfg.Port)
 	require.EqualValues(t, DefaultPrefix, cfg.Prefix)
-	require.EqualValues(t, DefaultLogFormat, cfg.LogFormat)
+	require.EqualValues(t, "console", cfg.Log.Format)
+	require.EqualValues(t, true, cfg.Log.Colors)
+	require.EqualValues(t, []string{"stderr"}, cfg.Log.Outputs)
 
 	dir, err := os.Getwd()
 	require.NoError(t, err)
