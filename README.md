@@ -64,21 +64,21 @@ tls: false
 cert: cert.pem
 key: key.pem
 
-# Prefix to apply to the WebDAV path-ing. Default is "/".
+# Prefix to apply to the WebDAV path-ing. Default is '/'.
 prefix: /
 
-# Enable or disable debug logging. Default is false.
+# Enable or disable debug logging. Default is 'false'.
 debug: false
 
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'directory' defined.
-# Default is "." (current directory).
+# Default is '.' (current directory).
 directory: .
 
-# Whether the users can, by default, modify the contents. Default is false.
+# The default modification permissions for users. Default is 'false'.
 modify: true
 
-# Default permissions rules to apply at the paths.
+# The default permissions rules for users. Default is none.
 rules: []
 
 # Logging configuration
@@ -131,7 +131,7 @@ users:
         modify: true
       # With this rule, the user CAN modify all files ending with .js. It uses
       # a regular expression.
-      - regex: "^.+\.js$"
+      - regex: "^.+.js$"
         modify: true
 ```
 
