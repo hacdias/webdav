@@ -10,20 +10,16 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
-	DefaultDirectory = "."
-	DefaultModify    = false
-	DefaultDebug     = false
-	DefaultNoSniff   = false
-	DefaultTLS       = false
-	DefaultCert      = "cert.pem"
-	DefaultKey       = "key.pem"
-	DefaultAddress   = "0.0.0.0"
-	DefaultPort      = 6065
-	DefaultPrefix    = "/"
-	DefaultLogFormat = "console"
+	DefaultTLS     = false
+	DefaultCert    = "cert.pem"
+	DefaultKey     = "key.pem"
+	DefaultAddress = "0.0.0.0"
+	DefaultPort    = 6065
+	DefaultPrefix  = "/"
 )
 
 type Config struct {
@@ -36,7 +32,7 @@ type Config struct {
 	Key         string
 	Prefix      string
 	NoSniff     bool
-	LogFormat   string `mapstructure:"log_format"`
+	Log         Log
 	CORS        CORS
 	Users       []User
 }
@@ -47,11 +43,6 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	// Configure flags bindings
 	if flags != nil {
 		err := v.BindPFlags(flags)
-		if err != nil {
-			return nil, err
-		}
-
-		err = v.BindPFlag("LogFormat", flags.Lookup("log_format"))
 		if err != nil {
 			return nil, err
 		}
@@ -74,19 +65,21 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	// empty or false.
 
 	// Defaults shared with flags
-	v.SetDefault("Directory", DefaultDirectory)
-	v.SetDefault("Modify", DefaultModify)
-	v.SetDefault("Debug", DefaultDebug)
-	v.SetDefault("NoSniff", DefaultNoSniff)
 	v.SetDefault("TLS", DefaultTLS)
 	v.SetDefault("Cert", DefaultCert)
 	v.SetDefault("Key", DefaultKey)
 	v.SetDefault("Address", DefaultAddress)
 	v.SetDefault("Port", DefaultPort)
 	v.SetDefault("Prefix", DefaultPrefix)
-	v.SetDefault("Log_Format", DefaultLogFormat)
 
 	// Other defaults
+	v.SetDefault("Directory", ".")
+	v.SetDefault("Modify", false)
+	v.SetDefault("Debug", false)
+	v.SetDefault("NoSniff", false)
+	v.SetDefault("Log.Format", "console")
+	v.SetDefault("Log.Outputs", []string{"stderr"})
+	v.SetDefault("Log.Colors", true)
 	v.SetDefault("CORS.Allowed_Headers", []string{"*"})
 	v.SetDefault("CORS.Allowed_Hosts", []string{"*"})
 	v.SetDefault("CORS.Allowed_Methods", []string{"*"})
@@ -135,10 +128,6 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 func (c *Config) Validate() error {
 	var err error
 
-	if len(c.Users) == 0 {
-		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
-	}
-
 	c.Directory, err = filepath.Abs(c.Directory)
 	if err != nil {
 		return fmt.Errorf("invalid config: %w", err)
@@ -177,6 +166,27 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func (cfg *Config) GetLogger() (*zap.Logger, error) {
+	loggerConfig := zap.NewProductionConfig()
+	loggerConfig.DisableCaller = true
+	if cfg.Debug {
+		loggerConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	}
+	if cfg.Log.Colors && cfg.Log.Format != "json" {
+		loggerConfig.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	}
+	loggerConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
+	loggerConfig.Encoding = cfg.Log.Format
+	loggerConfig.OutputPaths = cfg.Log.Outputs
+	return loggerConfig.Build()
+}
+
+type Log struct {
+	Format  string
+	Colors  bool
+	Outputs []string
 }
 
 type CORS struct {

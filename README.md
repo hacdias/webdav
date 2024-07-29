@@ -79,6 +79,31 @@ modify: true
 # Default permissions rules to apply at the paths.
 rules: []
 
+# Logging configuration
+log:
+  # Logging format ('console', 'json'). Default is 'console'.
+  format: console
+  # Enable or disable colors. Default is 'true'. Only applied if format is 'console'.
+  colors: true
+  # Logging outputs. You can have more than one output. Default is only 'stderr'.
+  outputs:
+  - stderr
+
+# CORS configuration
+cors:
+  # Whether or not CORS configuration should be applied. Default is 'false'.
+  enabled: true
+  credentials: true
+  allowed_headers:
+    - Depth
+  allowed_hosts:
+    - http://localhost:8080
+  allowed_methods:
+    - GET
+  exposed_headers:
+    - Content-Length
+    - Content-Range
+
 # The list of users. If users is empty, then there will be no authentication.
 users:
   # Example 'admin' user with plaintext password.
@@ -106,20 +131,6 @@ users:
       # a regular expression.
       - regex: "^.+\.js$"
         modify: true
-
-# CORS configuration
-cors:
-  enabled: true
-  credentials: true
-  allowed_headers:
-    - Depth
-  allowed_hosts:
-    - http://localhost:8080
-  allowed_methods:
-    - GET
-  exposed_headers:
-    - Content-Length
-    - Content-Range
 ```
 
 ### CORS

@@ -61,6 +61,10 @@ func NewHandler(c *Config) (http.Handler, error) {
 		}).Handler(h), nil
 	}
 
+	if len(c.Users) == 0 {
+		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
+	}
+
 	return h, nil
 }
 

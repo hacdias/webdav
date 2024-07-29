@@ -13,19 +13,17 @@ import (
 	"github.com/hacdias/webdav/v4/lib"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 func init() {
 	flags := rootCmd.Flags()
 	flags.StringP("config", "c", "", "config file path")
+	flags.StringP("address", "a", lib.DefaultAddress, "address to listen on")
+	flags.IntP("port", "p", lib.DefaultPort, "port to listen on")
 	flags.BoolP("tls", "t", lib.DefaultTLS, "enable TLS")
 	flags.String("cert", lib.DefaultCert, "path to TLS certificate")
 	flags.String("key", lib.DefaultKey, "path to TLS key")
-	flags.StringP("address", "a", lib.DefaultAddress, "address to listen on")
-	flags.IntP("port", "p", lib.DefaultPort, "port to listen on")
 	flags.StringP("prefix", "P", lib.DefaultPrefix, "URL path prefix")
-	flags.String("log_format", lib.DefaultLogFormat, "logging format")
 }
 
 var rootCmd = &cobra.Command{
@@ -57,14 +55,15 @@ set WD_CERT.`,
 			return err
 		}
 
-		// Create HTTP handler from the config
-		handler, err := lib.NewHandler(cfg)
+		// Setup the logger based on the configuration
+		logger, err := cfg.GetLogger()
 		if err != nil {
 			return err
 		}
+		zap.ReplaceGlobals(logger)
 
-		// Setup the logger based on the configuration
-		err = setupLogger(cfg)
+		// Create HTTP handler from the config
+		handler, err := lib.NewHandler(cfg)
 		if err != nil {
 			return err
 		}
@@ -125,20 +124,4 @@ func getListener(cfg *lib.Config) (net.Listener, error) {
 	}
 
 	return net.Listen(network, address)
-}
-
-func setupLogger(cfg *lib.Config) error {
-	loggerConfig := zap.NewProductionConfig()
-	loggerConfig.DisableCaller = true
-	if cfg.Debug {
-		loggerConfig.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
-	}
-	loggerConfig.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	loggerConfig.Encoding = cfg.LogFormat
-	logger, err := loggerConfig.Build()
-	if err != nil {
-		return err
-	}
-	zap.ReplaceGlobals(logger)
-	return nil
 }
