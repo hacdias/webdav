@@ -1,3 +1,5 @@
+> ⚠️ This is the development branch of the next major version (v5), which is not yet released. For the documentation of the latest version, check [v4.3.3](https://github.com/hacdias/webdav/tree/v4.3.3).
+
 # webdav
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/hacdias/webdav?style=flat-square)](https://goreportcard.com/report/hacdias/webdav)
@@ -11,7 +13,7 @@ A simple and standalone [WebDAV](https://en.wikipedia.org/wiki/WebDAV) server.
 For a manual install, please refer to the [releases](https://github.com/hacdias/webdav/releases) page and download the correct binary for your system. Alternatively, you can build or install it from source using the Go toolchain. You can either clone the repository and execute `go build`, or directly install it, using:
 
 ```
-go install github.com/hacdias/webdav/v4@latest
+go install github.com/hacdias/webdav/v5@latest
 ```
 
 ### Docker
