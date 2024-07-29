@@ -11,7 +11,7 @@ builds:
     flags:
       - '-trimpath'
     ldflags:
-      - '-X github.com/hacdias/webdav/v4/cmd.version={{.Version}}'
+      - '-X github.com/hacdias/webdav/v5/cmd.version={{.Version}}'
     goos:
       - darwin
       - linux

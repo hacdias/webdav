@@ -1,4 +1,4 @@
-module github.com/hacdias/webdav/v4
+module github.com/hacdias/webdav/v5
 
 go 1.22
 
@@ -36,5 +36,3 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
-
-retract v4.1.0
