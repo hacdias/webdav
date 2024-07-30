@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -79,6 +80,47 @@ func TestServerDefaults(t *testing.T) {
 	require.ErrorContains(t, client.Rename("/foo.txt", "/file2.txt", false), "403")
 	require.ErrorContains(t, client.Copy("/foo.txt", "/file2.txt", false), "403")
 	require.ErrorContains(t, client.Write("/foo.txt", []byte("hello world 2"), 0666), "403")
+}
+
+func TestServerListingCharacters(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"富/foo.txt": []byte("foo"),
+		"你好.txt":    []byte("bar"),
+		"z*.txt":    []byte("zbar"),
+		"foo.txt":   []byte("foo"),
+		"🌹.txt":     []byte("foo"),
+	})
+
+	srv := makeTestServer(t, "directory: "+dir)
+	client := gowebdav.NewClient(srv.URL, "", "")
+
+	// By default, reading permissions.
+	files, err := client.ReadDir("/")
+	require.NoError(t, err)
+	require.Len(t, files, 5)
+
+	names := []string{
+		files[0].Name(),
+		files[1].Name(),
+		files[2].Name(),
+		files[3].Name(),
+		files[4].Name(),
+	}
+	sort.Strings(names)
+
+	require.Equal(t, []string{
+		"foo.txt",
+		"z*.txt",
+		"你好.txt",
+		"富",
+		"🌹.txt",
+	}, names)
+
+	data, err := client.Read("/z*.txt")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("zbar"), data)
 }
 
 func TestServerAuthentication(t *testing.T) {
