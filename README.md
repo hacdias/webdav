@@ -1,5 +1,3 @@
-> ⚠️ This is the development branch of the next major version (v5), which is not yet released. For the documentation of the latest version, check [v4.3.3](https://github.com/hacdias/webdav/tree/v4.3.3).
-
 # webdav
 
 [![Go Report Card](https://goreportcard.com/badge/github.com/hacdias/webdav?style=flat-square)](https://goreportcard.com/report/hacdias/webdav)
