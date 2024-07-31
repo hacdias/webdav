@@ -23,18 +23,18 @@ const (
 )
 
 type Config struct {
-	Permissions `mapstructure:",squash"`
-	Debug       bool
-	Address     string
-	Port        int
-	TLS         bool
-	Cert        string
-	Key         string
-	Prefix      string
-	NoSniff     bool
-	Log         Log
-	CORS        CORS
-	Users       []User
+	UserPermissions `mapstructure:",squash"`
+	Debug           bool
+	Address         string
+	Port            int
+	TLS             bool
+	Cert            string
+	Key             string
+	Prefix          string
+	NoSniff         bool
+	Log             Log
+	CORS            CORS
+	Users           []User
 }
 
 func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
@@ -74,7 +74,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 
 	// Other defaults
 	v.SetDefault("Directory", ".")
-	v.SetDefault("Modify", false)
+	v.SetDefault("Permissions", "R")
 	v.SetDefault("Debug", false)
 	v.SetDefault("NoSniff", false)
 	v.SetDefault("Log.Format", "console")
@@ -108,8 +108,8 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 			cfg.Users[i].Directory = cfg.Directory
 		}
 
-		if !v.IsSet(fmt.Sprintf("Users.%d.Modify", i)) {
-			cfg.Users[i].Modify = cfg.Modify
+		if !v.IsSet(fmt.Sprintf("Users.%d.Permissions", i)) {
+			cfg.Users[i].Permissions = cfg.Permissions
 		}
 
 		if !v.IsSet(fmt.Sprintf("Users.%d.Rules", i)) {
@@ -153,7 +153,7 @@ func (c *Config) Validate() error {
 		}
 	}
 
-	err = c.Permissions.Validate()
+	err = c.UserPermissions.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}

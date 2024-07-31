@@ -10,9 +10,9 @@ import (
 )
 
 type User struct {
-	Permissions `mapstructure:",squash"`
-	Username    string
-	Password    string
+	UserPermissions `mapstructure:",squash"`
+	Username        string
+	Password        string
 }
 
 func (u User) checkPassword(input string) bool {
@@ -44,7 +44,7 @@ func (u *User) Validate() error {
 		}
 	}
 
-	if err := u.Permissions.Validate(); err != nil {
+	if err := u.UserPermissions.Validate(); err != nil {
 		return fmt.Errorf("invalid user %q: %w", u.Username, err)
 	}
 

@@ -75,8 +75,10 @@ debug: false
 # Default is '.' (current directory).
 directory: .
 
-# The default modification permissions for users. Default is 'false'.
-modify: true
+# The default permissions for users. This is a case insensitive option. Possible
+# permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
+# permissions. For example, to allow to read and create, set "RC". Default is "R".
+permissions: R
 
 # The default permissions rules for users. Default is none.
 rules: []
@@ -120,19 +122,19 @@ users:
     password: "{env}ENV_PASSWORD"
   - username: basic
     password: basic
-    # Override default modify.
-    modify: false
+    # Override default permissions.
+    permissions: CRUD
     rules:
       # With this rule, the user CANNOT access /some/files.
       - path: /some/file
-        allow: false
-      # With this rule, the user CAN modify /public/access.
+        permissions: none
+      # With this rule, the user CAN create, read, update and delete within /public/access.
       - path: /public/access/
-        modify: true
-      # With this rule, the user CAN modify all files ending with .js. It uses
+        permissions: CRUD
+      # With this rule, the user CAN read and update all files ending with .js. It uses
       # a regular expression.
       - regex: "^.+.js$"
-        modify: true
+        permissions: RU
 ```
 
 ### CORS

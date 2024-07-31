@@ -9,18 +9,10 @@ import (
 	"strings"
 )
 
-var readMethods = []string{
-	http.MethodGet,
-	http.MethodHead,
-	http.MethodOptions,
-	"PROPFIND",
-}
-
 type Rule struct {
-	Allow  bool
-	Modify bool
-	Path   string
-	Regex  *regexp.Regexp
+	Permissions Permissions
+	Path        string
+	Regex       *regexp.Regexp
 }
 
 func (r *Rule) Validate() error {
@@ -40,36 +32,27 @@ func (r *Rule) Matches(path string) bool {
 	return strings.HasPrefix(path, r.Path)
 }
 
-type Permissions struct {
-	Directory string
-	Modify    bool
-	Rules     []*Rule
+type UserPermissions struct {
+	Directory   string
+	Permissions Permissions
+	Rules       []*Rule
 }
 
 // Allowed checks if the user has permission to access a directory/file
-func (p Permissions) Allowed(r *http.Request) bool {
-	// Determine whether or not it is a read or write request.
-	readRequest := false
-	for _, method := range readMethods {
-		if r.Method == method {
-			readRequest = true
-			break
-		}
-	}
-
+func (p UserPermissions) Allowed(r *http.Request, destinationExists func(string) bool) bool {
 	// Go through rules beginning from the last one.
 	for i := len(p.Rules) - 1; i >= 0; i-- {
 		rule := p.Rules[i]
 
 		if rule.Matches(r.URL.Path) {
-			return rule.Allow && (readRequest || rule.Modify)
+			return rule.Permissions.Allowed(r, destinationExists)
 		}
 	}
 
-	return readRequest || p.Modify
+	return p.Permissions.Allowed(r, destinationExists)
 }
 
-func (p *Permissions) Validate() error {
+func (p *UserPermissions) Validate() error {
 	var err error
 
 	p.Directory, err = filepath.Abs(p.Directory)
@@ -84,4 +67,65 @@ func (p *Permissions) Validate() error {
 	}
 
 	return nil
+}
+
+type Permissions struct {
+	Create bool
+	Read   bool
+	Update bool
+	Delete bool
+}
+
+func (p *Permissions) UnmarshalText(data []byte) error {
+	text := strings.ToLower(string(data))
+	if text == "none" {
+		return nil
+	}
+
+	for _, c := range text {
+		switch c {
+		case 'c':
+			p.Create = true
+		case 'r':
+			p.Read = true
+		case 'u':
+			p.Update = true
+		case 'd':
+			p.Delete = true
+		default:
+			return fmt.Errorf("invalid permission: %q", c)
+		}
+	}
+
+	return nil
+}
+
+func (p Permissions) Allowed(r *http.Request, destinationExists func(string) bool) bool {
+	switch r.Method {
+	case "GET", "HEAD", "OPTIONS", "POST", "PROPFIND":
+		// Note: POST backend implementation just returns the same thing as GET.
+		return p.Read
+	case "MKCOL":
+		return p.Create
+	case "PROPPATCH":
+		return p.Update
+	case "PUT":
+		if destinationExists(r.URL.Path) {
+			return p.Update
+		} else {
+			return p.Create
+		}
+	case "COPY", "MOVE":
+		if destinationExists(r.Header.Get("Destination")) {
+			return p.Update
+		} else {
+			return p.Create
+		}
+	case "DELETE":
+		return p.Delete
+	case "LOCK", "UNLOCK":
+		return p.Create || p.Read || p.Update || p.Delete
+	default:
+		return false
+	}
 }
