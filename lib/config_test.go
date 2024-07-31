@@ -49,17 +49,25 @@ func TestConfigCascade(t *testing.T) {
 	t.Parallel()
 
 	check := func(t *testing.T, cfg *Config) {
-		require.True(t, cfg.Modify)
+		require.True(t, cfg.Permissions.Read)
+		require.True(t, cfg.Permissions.Create)
+		require.False(t, cfg.Permissions.Delete)
+		require.False(t, cfg.Permissions.Update)
 		require.Equal(t, "/", cfg.Directory)
 		require.Len(t, cfg.Rules, 1)
 
 		require.Len(t, cfg.Users, 2)
-
-		require.True(t, cfg.Users[0].Modify)
+		require.True(t, cfg.Users[0].Permissions.Read)
+		require.True(t, cfg.Users[0].Permissions.Create)
+		require.False(t, cfg.Users[0].Permissions.Delete)
+		require.False(t, cfg.Users[0].Permissions.Update)
 		require.Equal(t, "/", cfg.Users[0].Directory)
 		require.Len(t, cfg.Users[0].Rules, 1)
 
-		require.False(t, cfg.Users[1].Modify)
+		require.True(t, cfg.Users[1].Permissions.Read)
+		require.False(t, cfg.Users[1].Permissions.Create)
+		require.False(t, cfg.Users[1].Permissions.Delete)
+		require.False(t, cfg.Users[1].Permissions.Update)
 		require.Equal(t, "/basic", cfg.Users[1].Directory)
 		require.Len(t, cfg.Users[1].Rules, 0)
 	}
@@ -67,10 +75,10 @@ func TestConfigCascade(t *testing.T) {
 	t.Run("YAML", func(t *testing.T) {
 		content := `
 directory: /
-modify: true
+permissions: CR
 rules:
   - path: /public/access/
-    modify: true
+    permissions: R
 
 users:
   - username: admin
@@ -78,7 +86,7 @@ users:
   - username: basic
     password: basic
     directory: /basic
-    modify: false
+    permissions: R
     rules: []`
 
 		cfg := writeAndParseConfig(t, content, ".yml")
@@ -90,11 +98,11 @@ users:
 	t.Run("JSON", func(t *testing.T) {
 		content := `{
 	"directory": "/",
-	"modify": true,
+	"permissions": "CR",
 	"rules": [
 		{
 			"path": "/public/access/",
-			"modify": true
+			"permissions": "R"
 		}
 	],
 	"users": [
@@ -106,7 +114,7 @@ users:
 			"username": "basic",
 			"password": "basic",
 			"directory": "/basic",
-			"modify": false,
+			"permissions": "R",
 			"rules": []
 		}
 	]
@@ -121,11 +129,11 @@ users:
 	t.Run("`TOML", func(t *testing.T) {
 		content := `
 directory = "/"
-modify = true
+permissions = "CR"
 
 [[rules]]
 path = "/public/access/"
-modify = true
+permissions = "R"
 
 [[users]]
 username = "admin"
@@ -135,7 +143,7 @@ password = "admin"
 username = "basic"
 password = "basic"
 directory = "/basic"
-modify = false
+permissions = "R"
 rules = []
 `
 
@@ -175,12 +183,9 @@ cors:
 func TestConfigRules(t *testing.T) {
 	content := `
 directory: /
-modify: true
 rules:
   - regex: '^.+\.js$'
-    modify: true
-  - path: /public/access/
-    modify: true`
+  - path: /public/access/`
 
 	cfg := writeAndParseConfig(t, content, ".yaml")
 	require.NoError(t, cfg.Validate())
@@ -199,7 +204,7 @@ rules:
 func TestConfigEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("WD_PORT", "1234"))
 	require.NoError(t, os.Setenv("WD_DEBUG", "true"))
-	require.NoError(t, os.Setenv("WD_MODIFY", "true"))
+	require.NoError(t, os.Setenv("WD_PERMISSIONS", "CRUD"))
 	require.NoError(t, os.Setenv("WD_DIRECTORY", "/test"))
 
 	cfg, err := ParseConfig("", nil)
@@ -208,11 +213,14 @@ func TestConfigEnv(t *testing.T) {
 	assert.Equal(t, 1234, cfg.Port)
 	assert.Equal(t, "/test", cfg.Directory)
 	assert.Equal(t, true, cfg.Debug)
-	assert.Equal(t, true, cfg.Modify)
+	require.True(t, cfg.Permissions.Read)
+	require.True(t, cfg.Permissions.Create)
+	require.True(t, cfg.Permissions.Delete)
+	require.True(t, cfg.Permissions.Update)
 
 	// Reset
 	require.NoError(t, os.Setenv("WD_PORT", ""))
 	require.NoError(t, os.Setenv("WD_DEBUG", ""))
-	require.NoError(t, os.Setenv("WD_MODIFY", ""))
+	require.NoError(t, os.Setenv("WD_PERMISSIONS", ""))
 	require.NoError(t, os.Setenv("WD_DIRECTORY", ""))
 }

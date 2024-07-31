@@ -133,7 +133,7 @@ func TestServerAuthentication(t *testing.T) {
 
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
-modify: true
+permissions: CRUD
 
 users:
   - username: basic
@@ -191,38 +191,57 @@ func TestServerRules(t *testing.T) {
 		"a/foo.js":  []byte("foo js"),
 		"a/foo.txt": []byte("foo txt"),
 		"b/foo.txt": []byte("foo b"),
+		"c/a.txt":   []byte("b"),
+		"c/b.txt":   []byte("b"),
+		"c/c.txt":   []byte("b"),
 	})
 
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
-modify: true
+permissions: CRUD
 
 users:
   - username: basic
     password: basic
     rules:
     - regex: "^.+.js$"
-      modify: false
+      permissions: R
     - path: "/b"
-      modify: false
+      permissions: R
+    - path: "/a/foo.txt"
+      permissions: none
+    - path: "/c"
+      permissions: none
 `, dir))
 
 	client := gowebdav.NewClient(srv.URL, "basic", "basic")
 
 	files, err := client.ReadDir("/")
 	require.NoError(t, err)
-	require.Len(t, files, 3)
+	require.Len(t, files, 4)
 
 	err = client.Write("/foo.txt", []byte("new"), 0666)
 	require.NoError(t, err)
 
-	err = client.Write("/a/foo.txt", []byte("new"), 0666)
+	err = client.Write("/new.txt", []byte("new"), 0666)
 	require.NoError(t, err)
+
+	_, err = client.Read("/a/foo.txt")
+	require.ErrorContains(t, err, "403")
 
 	err = client.Write("/a/foo.js", []byte("new"), 0666)
 	require.ErrorContains(t, err, "403")
 
 	err = client.Write("/b/foo.txt", []byte("new"), 0666)
+	require.ErrorContains(t, err, "403")
+
+	_, err = client.ReadDir("/c")
+	require.ErrorContains(t, err, "403")
+
+	_, err = client.Read("/c/a.txt")
+	require.ErrorContains(t, err, "403")
+
+	err = client.Write("/c/b.txt", []byte("new"), 0666)
 	require.ErrorContains(t, err, "403")
 }
 
@@ -237,7 +256,7 @@ func TestServerPermissions(t *testing.T) {
 
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
-modify: true
+permissions: CR
 
 users:
   - username: a
@@ -246,7 +265,7 @@ users:
   - username: b
     password: b
     directory: %s/b
-    modify: false
+    permissions: R
 `, dir, dir, dir))
 
 	t.Run("User A", func(t *testing.T) {
@@ -264,6 +283,12 @@ users:
 
 		err = client.Copy("/foo.txt", "/copy.txt", false)
 		require.NoError(t, err)
+
+		err = client.Copy("/foo.txt", "/copy.txt", true)
+		require.ErrorContains(t, err, "403")
+
+		err = client.Rename("/foo.txt", "/copy.txt", true)
+		require.ErrorContains(t, err, "403")
 
 		data, err = client.Read("/copy.txt")
 		require.NoError(t, err)

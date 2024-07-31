@@ -2,6 +2,8 @@ package lib
 
 import (
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 
 	"github.com/rs/cors"
@@ -23,7 +25,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
 		user: &handlerUser{
 			User: User{
-				Permissions: c.Permissions,
+				UserPermissions: c.UserPermissions,
 			},
 			Handler: webdav.Handler{
 				Prefix: c.Prefix,
@@ -100,7 +102,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	allowed := user.Allowed(r)
+	allowed := user.Allowed(r, func(destination string) bool {
+		u, err := url.Parse(destination)
+		if err != nil {
+			return false
+		}
+		path := strings.TrimPrefix(u.Path, user.Prefix)
+		_, err = user.FileSystem.Stat(r.Context(), path)
+		return !os.IsNotExist(err)
+	})
 
 	zap.L().Debug("allowed & method & path", zap.Bool("allowed", allowed), zap.String("method", r.Method), zap.String("path", r.URL.Path))
 
