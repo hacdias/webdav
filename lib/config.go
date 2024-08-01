@@ -32,6 +32,7 @@ type Config struct {
 	Key             string
 	Prefix          string
 	NoSniff         bool
+	NoPassword      bool
 	Log             Log
 	CORS            CORS
 	Users           []User
@@ -77,6 +78,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Permissions", "R")
 	v.SetDefault("Debug", false)
 	v.SetDefault("NoSniff", false)
+	v.SetDefault("NoPassword", false)
 	v.SetDefault("Log.Format", "console")
 	v.SetDefault("Log.Outputs", []string{"stderr"})
 	v.SetDefault("Log.Colors", true)
@@ -159,7 +161,7 @@ func (c *Config) Validate() error {
 	}
 
 	for _, u := range c.Users {
-		err := u.Validate()
+		err := u.Validate(c.NoPassword)
 		if err != nil {
 			return fmt.Errorf("invalid config: %w", err)
 		}

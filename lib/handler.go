@@ -17,12 +17,14 @@ type handlerUser struct {
 }
 
 type Handler struct {
-	user  *handlerUser
-	users map[string]*handlerUser
+	noPassword bool
+	user       *handlerUser
+	users      map[string]*handlerUser
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
+		noPassword: c.NoPassword,
 		user: &handlerUser{
 			User: User{
 				UserPermissions: c.UserPermissions,
@@ -67,6 +69,10 @@ func NewHandler(c *Config) (http.Handler, error) {
 		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
 	}
 
+	if c.NoPassword {
+		zap.L().Warn("unprotected config: password check is disabled, only intended when delegating authentication to another service")
+	}
+
 	return h, nil
 }
 
@@ -92,7 +98,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if !user.checkPassword(password) {
+		if !h.noPassword && !user.checkPassword(password) {
 			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
