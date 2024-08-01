@@ -68,6 +68,9 @@ prefix: /
 # Enable or disable debug logging. Default is 'false'.
 debug: false
 
+# Disable sniffing the files to detect their content type. Default is 'false'.
+noSniff: false
+
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'directory' defined.
 # Default is '.' (current directory).
