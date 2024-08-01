@@ -24,12 +24,12 @@ func (u User) checkPassword(input string) bool {
 	return u.Password == input
 }
 
-func (u *User) Validate() error {
+func (u *User) Validate(noPassword bool) error {
 	if u.Username == "" {
 		return errors.New("invalid user: username must be set")
 	}
 
-	if u.Password == "" {
+	if u.Password == "" && !noPassword {
 		return fmt.Errorf("invalid user %q: password must be set", u.Username)
 	} else if strings.HasPrefix(u.Password, "{env}") {
 

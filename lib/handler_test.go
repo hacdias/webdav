@@ -183,6 +183,40 @@ users:
 	})
 }
 
+func TestServerAuthenticationNoPassword(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt":     []byte("foo"),
+		"sub/bar.txt": []byte("bar"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+noPassword: true
+permissions: CRUD
+
+users:
+  - username: basic
+`, dir))
+
+	t.Run("Basic Auth", func(t *testing.T) {
+		t.Parallel()
+
+		client := gowebdav.NewClient(srv.URL, "basic", "")
+		files, err := client.ReadDir("/")
+		require.NoError(t, err)
+		require.Len(t, files, 2)
+	})
+
+	t.Run("Unauthorized Wrong User", func(t *testing.T) {
+		t.Parallel()
+		client := gowebdav.NewClient(srv.URL, "wrong", "")
+		_, err := client.ReadDir("/")
+		require.ErrorContains(t, err, "401")
+	})
+}
+
 func TestServerRules(t *testing.T) {
 	t.Parallel()
 

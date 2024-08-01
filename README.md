@@ -106,7 +106,14 @@ cors:
     - Content-Length
     - Content-Range
 
-# The list of users. If users is empty, then there will be no authentication.
+# The list of users. If the list is empty, then there will be no authentication.
+# Otherwise, basic authentication will automatically be configured.
+#
+# If you're delegating the authentication to a different service, you can proxy
+# the username using basic authentication, and then disable webdav's password
+# check using the option:
+#
+# noPassword: true
 users:
   # Example 'admin' user with plaintext password.
   - username: admin
