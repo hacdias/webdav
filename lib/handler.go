@@ -2,7 +2,6 @@ package lib
 
 import (
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
 
@@ -108,13 +107,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Checks for user permissions relatively to this PATH.
-	allowed := user.Allowed(r, func(destination string) bool {
-		u, err := url.Parse(destination)
-		if err != nil {
-			return false
-		}
-		path := strings.TrimPrefix(u.Path, user.Prefix)
-		_, err = user.FileSystem.Stat(r.Context(), path)
+	allowed := user.Allowed(r, user.Prefix, func(filename string) bool {
+		_, err := user.FileSystem.Stat(r.Context(), filename)
 		return !os.IsNotExist(err)
 	})
 
