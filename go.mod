@@ -1,6 +1,6 @@
 module github.com/hacdias/webdav/v5
 
-go 1.22
+go 1.23
 
 require (
 	github.com/go-viper/mapstructure/v2 v2.1.0
