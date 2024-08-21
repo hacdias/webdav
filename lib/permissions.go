@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -40,27 +39,16 @@ type UserPermissions struct {
 }
 
 // Allowed checks if the user has permission to access a directory/file
-func (p UserPermissions) Allowed(r *http.Request, prefix string, fileExists func(string) bool) bool {
-
+func (p UserPermissions) Allowed(r *http.Request, fileExists func(string) bool) bool {
 	// For COPY and MOVE requests, we first check the permissions for the destination
 	// path. As soon as a rule matches and does not allow the operation at the destination,
 	// we fail immediately. If no rule matches, we check the global permissions.
 	if r.Method == "COPY" || r.Method == "MOVE" {
-		u, err := url.Parse(r.Header.Get("Destination"))
-		if err != nil {
-			return false
-		}
-		dst := strings.TrimPrefix(u.Path, prefix)
-		if !strings.HasPrefix(dst, "/") {
-			dst = "/" + dst
-		}
-
-		fmt.Println(dst)
+		dst := r.Header.Get("Destination")
 
 		for i := len(p.Rules) - 1; i >= 0; i-- {
 			if p.Rules[i].Matches(dst) {
-				if !p.Rules[i].Permissions.AllowedDestination(r.Method, dst, fileExists) {
-					fmt.Println("disallowed", p.Rules[i].Path)
+				if !p.Rules[i].Permissions.AllowedDestination(r, fileExists) {
 					return false
 				}
 
@@ -69,8 +57,7 @@ func (p UserPermissions) Allowed(r *http.Request, prefix string, fileExists func
 			}
 		}
 
-		if !p.Permissions.AllowedDestination(r.Method, dst, fileExists) {
-			fmt.Println("disallowed")
+		if !p.Permissions.AllowedDestination(r, fileExists) {
 			return false
 		}
 	}
@@ -79,11 +66,11 @@ func (p UserPermissions) Allowed(r *http.Request, prefix string, fileExists func
 	// the source. The first matched rule returns.
 	for i := len(p.Rules) - 1; i >= 0; i-- {
 		if p.Rules[i].Matches(r.URL.Path) {
-			return p.Rules[i].Permissions.AllowedSource(r.Method, r.URL.Path, fileExists)
+			return p.Rules[i].Permissions.Allowed(r, fileExists)
 		}
 	}
 
-	return p.Permissions.AllowedSource(r.Method, r.URL.Path, fileExists)
+	return p.Permissions.Allowed(r, fileExists)
 }
 
 func (p *UserPermissions) Validate() error {
@@ -134,10 +121,10 @@ func (p *Permissions) UnmarshalText(data []byte) error {
 	return nil
 }
 
-// AllowedSource returns whether this permission set has permissions to execute this
+// Allowed returns whether this permission set has permissions to execute this
 // request in the source directory. This applies to all requests with all methods.
-func (p Permissions) AllowedSource(method, filename string, fileExists func(string) bool) bool {
-	switch method {
+func (p Permissions) Allowed(r *http.Request, fileExists func(string) bool) bool {
+	switch r.Method {
 	case "GET", "HEAD", "OPTIONS", "POST", "PROPFIND":
 		// Note: POST backend implementation just returns the same thing as GET.
 		return p.Read
@@ -146,7 +133,7 @@ func (p Permissions) AllowedSource(method, filename string, fileExists func(stri
 	case "PROPPATCH":
 		return p.Update
 	case "PUT":
-		if fileExists(filename) {
+		if fileExists(r.URL.Path) {
 			return p.Update
 		} else {
 			return p.Create
@@ -166,10 +153,10 @@ func (p Permissions) AllowedSource(method, filename string, fileExists func(stri
 
 // AllowedDestination returns whether this permissions set has permissions to execute this
 // request in the destination directory. This only applies for COPY and MOVE requests.
-func (p Permissions) AllowedDestination(method, filename string, fileExists func(string) bool) bool {
-	switch method {
+func (p Permissions) AllowedDestination(r *http.Request, fileExists func(string) bool) bool {
+	switch r.Method {
 	case "COPY", "MOVE":
-		if fileExists(filename) {
+		if fileExists(r.Header.Get("Destination")) {
 			return p.Update
 		} else {
 			return p.Create

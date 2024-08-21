@@ -2,6 +2,7 @@ package lib
 
 import (
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -106,8 +107,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.L().Info("user authorized", zap.String("username", username))
 	}
 
+	// Cleanup destination header if it's present by stripping out the prefix
+	// and only keeping the path.
+	if destination := r.Header.Get("Destination"); destination != "" {
+		u, err := url.Parse(destination)
+		if err == nil {
+			destination = strings.TrimPrefix(u.Path, user.Prefix)
+			if !strings.HasPrefix(destination, "/") {
+				destination = "/" + destination
+			}
+			r.Header.Set("Destination", destination)
+		}
+	}
+
 	// Checks for user permissions relatively to this PATH.
-	allowed := user.Allowed(r, user.Prefix, func(filename string) bool {
+	allowed := user.Allowed(r, func(filename string) bool {
 		_, err := user.FileSystem.Stat(r.Context(), filename)
 		return !os.IsNotExist(err)
 	})
