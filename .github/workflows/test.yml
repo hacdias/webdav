@@ -19,5 +19,3 @@ jobs:
           go-version: "1.23.x"
       - name: Run test with coverage
         run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
-        env:
-          CGO_ENABLED: '0'
