@@ -8,6 +8,8 @@ before:
 builds:
   - main: main.go
     binary: webdav
+    env:
+      - CGO_ENABLED=0
     flags:
       - '-trimpath'
     ldflags:
