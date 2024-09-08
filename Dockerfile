@@ -11,7 +11,7 @@ COPY ./go.sum ./
 RUN go mod download
 
 COPY . /webdav/
-RUN go build -o main -ldflags="-X 'github.com/hacdias/webdav/v5/cmd.version=$VERSION'" .
+RUN go build -o main -trimpath -ldflags="-s -w -X 'github.com/hacdias/webdav/v5/cmd.version=$VERSION'" .
 
 FROM scratch
 
