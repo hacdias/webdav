@@ -190,6 +190,64 @@ Restart=on-failure
 WantedBy=multi-user.target
 ```
 
+## Fail2Ban Setup
+
+To add security against brute-force attacks in your WebDAV server, you can configure Fail2Ban to ban IP addresses after a set number of failed login attempts.
+
+### Filter Configuration
+
+Create a new filter rule under `filter.d/webdav.conf`:
+
+```ini
+[INCLUDES]
+before = common.conf
+
+[Definition]
+# Failregex to match "invalid password" and extract remote_address only
+failregex = ^.*invalid password\s*\{.*"remote_address":\s*"<HOST>"\s*\}
+
+# Failregex to match "invalid username" and extract remote_address only (if applicable)
+failregex += ^.*invalid username\s*\{.*"remote_address":\s*"<HOST>"\s*\}
+
+ignoreregex =
+```
+
+This configuration will capture invalid login attempts and extract the IP address to ban.
+
+### Jail Configuration
+
+In `jail.d/webdav.conf`, define the jail that monitors your WebDAV log for failed login attempts:
+
+```ini
+[webdav]
+
+enabled = true
+port = [your_port]
+filter = webdav
+logpath = [your_log_path]
+banaction = iptables-allports
+ignoreself = false
+```
+
+- Replace `[your_port]` with the port your WebDAV server is running on.
+- Replace `[your_log_path]` with the path to your WebDAV log file.
+
+### Final Steps
+
+1. Restart Fail2Ban to apply these configurations:
+
+   ```bash
+   sudo systemctl restart fail2ban
+   ```
+
+2. Verify that Fail2Ban is running and monitoring your WebDAV logs:
+
+   ```bash
+   sudo fail2ban-client status webdav
+   ```
+
+With this setup, Fail2Ban will automatically block IP addresses that exceed the allowed number of failed login attempts.
+
 ## Contributing
 
 Feel free to open an issue or a pull request.
