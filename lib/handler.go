@@ -84,9 +84,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if len(h.users) > 0 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
+		// Retrieve the real client IP address using the updated helper function
+		remoteAddr := getRealRemoteIP(r)
+
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
-		zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
+		zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", remoteAddr))
 		if !ok {
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -99,7 +102,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !h.noPassword && !user.checkPassword(password) {
-			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", r.RemoteAddr))
+			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", remoteAddr))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
@@ -157,6 +160,15 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Runs the WebDAV.
 	user.ServeHTTP(w, r)
+}
+
+// getRealRemoteIP retrieves the client's actual IP address, considering reverse proxies.
+func getRealRemoteIP(r *http.Request) string {
+    ip := r.Header.Get("X-Forwarded-For")
+    if ip == "" {
+        ip = r.RemoteAddr
+    }
+    return ip
 }
 
 type responseWriterNoBody struct {
