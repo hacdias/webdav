@@ -89,7 +89,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
-		zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", remoteAddr))
+		// Removed the login attempt log to reduce log volume and focus on final verification results
+		// zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", remoteAddr))
 		if !ok {
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
@@ -97,17 +98,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		user, ok = h.users[username]
 		if !ok {
+			// Log invalid username
+			zap.L().Info("invalid username", zap.String("username", username), zap.String("remote_address", remoteAddr))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		if !h.noPassword && !user.checkPassword(password) {
+			// Log invalid password
 			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", remoteAddr))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
-		zap.L().Info("user authorized", zap.String("username", username))
+		// Log successful authorization
+		zap.L().Info("user authorized", zap.String("username", username), zap.String("remote_address", remoteAddr))
 	}
 
 	// Cleanup destination header if it's present by stripping out the prefix
