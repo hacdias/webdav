@@ -89,8 +89,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
-		// Removed the login attempt log to reduce log volume and focus on final verification results
-		// zap.L().Info("login attempt", zap.String("username", username), zap.String("remote_address", remoteAddr))
 		if !ok {
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
