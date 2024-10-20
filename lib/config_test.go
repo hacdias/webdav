@@ -22,6 +22,17 @@ func writeAndParseConfig(t *testing.T, content, extension string) *Config {
 	return cfg
 }
 
+func writeAndParseConfigWithError(t *testing.T, content, extension, error string) {
+	tmpDir := t.TempDir()
+	tmpFile := filepath.Join(tmpDir, "config"+extension)
+
+	err := os.WriteFile(tmpFile, []byte(content), 0666)
+	require.NoError(t, err)
+
+	_, err = ParseConfig(tmpFile, nil)
+	require.ErrorContains(t, err, error)
+}
+
 func TestConfigDefaults(t *testing.T) {
 	t.Parallel()
 
@@ -223,4 +234,34 @@ func TestConfigEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("WD_DEBUG", ""))
 	require.NoError(t, os.Setenv("WD_PERMISSIONS", ""))
 	require.NoError(t, os.Setenv("WD_DIRECTORY", ""))
+}
+
+func TestConfigParseUserPasswordEnvironment(t *testing.T) {
+	content := `
+directory: /
+users:
+  - username: '{env}USER1_USERNAME'
+    password: '{env}USER1_PASSWORD'
+  - username: basic
+    password: basic
+`
+
+	writeAndParseConfigWithError(t, content, ".yml", "username environment variable is empty")
+
+	err := os.Setenv("USER1_USERNAME", "admin")
+	require.NoError(t, err)
+
+	writeAndParseConfigWithError(t, content, ".yml", "password environment variable is empty")
+
+	err = os.Setenv("USER1_PASSWORD", "admin")
+	require.NoError(t, err)
+
+	cfg := writeAndParseConfig(t, content, ".yaml")
+	require.NoError(t, cfg.Validate())
+
+	require.Equal(t, "admin", cfg.Users[0].Username)
+	require.Equal(t, "basic", cfg.Users[1].Username)
+
+	require.True(t, cfg.Users[0].checkPassword("admin"))
+	require.True(t, cfg.Users[1].checkPassword("basic"))
 }

@@ -160,8 +160,8 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
-	for _, u := range c.Users {
-		err := u.Validate(c.NoPassword)
+	for i := range c.Users {
+		err := c.Users[i].Validate(c.NoPassword)
 		if err != nil {
 			return fmt.Errorf("invalid config: %w", err)
 		}

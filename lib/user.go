@@ -27,12 +27,21 @@ func (u User) checkPassword(input string) bool {
 func (u *User) Validate(noPassword bool) error {
 	if u.Username == "" {
 		return errors.New("invalid user: username must be set")
+	} else if strings.HasPrefix(u.Username, "{env}") {
+		env := strings.TrimPrefix(u.Username, "{env}")
+		if env == "" {
+			return fmt.Errorf("invalid user %q: username environment variable not set", u.Username)
+		}
+
+		u.Username = os.Getenv(env)
+		if u.Username == "" {
+			return fmt.Errorf("invalid user %q: username environment variable is empty", u.Username)
+		}
 	}
 
 	if u.Password == "" && !noPassword {
 		return fmt.Errorf("invalid user %q: password must be set", u.Username)
 	} else if strings.HasPrefix(u.Password, "{env}") {
-
 		env := strings.TrimPrefix(u.Password, "{env}")
 		if env == "" {
 			return fmt.Errorf("invalid user %q: password environment variable not set", u.Username)
