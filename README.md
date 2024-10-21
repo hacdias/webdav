@@ -71,6 +71,11 @@ debug: false
 # Disable sniffing the files to detect their content type. Default is 'false'.
 noSniff: false
 
+# Whether the server runs behind a trusted proxy or not. When this is true,
+# the header X-Forwarded-For will be used for logging the remote addresses
+# of logging attempts (if available).
+behindProxy: false
+
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'directory' defined.
 # Default is '.' (current directory).
