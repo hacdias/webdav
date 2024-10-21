@@ -33,6 +33,7 @@ type Config struct {
 	Prefix          string
 	NoSniff         bool
 	NoPassword      bool
+	BehindProxy     bool
 	Log             Log
 	CORS            CORS
 	Users           []User

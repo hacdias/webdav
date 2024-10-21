@@ -17,14 +17,16 @@ type handlerUser struct {
 }
 
 type Handler struct {
-	noPassword bool
-	user       *handlerUser
-	users      map[string]*handlerUser
+	noPassword  bool
+	behindProxy bool
+	user        *handlerUser
+	users       map[string]*handlerUser
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
-		noPassword: c.NoPassword,
+		noPassword:  c.NoPassword,
+		behindProxy: c.BehindProxy,
 		user: &handlerUser{
 			User: User{
 				UserPermissions: c.UserPermissions,
@@ -85,7 +87,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
 		// Retrieve the real client IP address using the updated helper function
-		remoteAddr := getRealRemoteIP(r)
+		remoteAddr := getRealRemoteIP(r, h.behindProxy)
 
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
@@ -166,12 +168,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // getRealRemoteIP retrieves the client's actual IP address, considering reverse proxies.
-func getRealRemoteIP(r *http.Request) string {
-    ip := r.Header.Get("X-Forwarded-For")
-    if ip == "" {
-        ip = r.RemoteAddr
-    }
-    return ip
+func getRealRemoteIP(r *http.Request, behindProxy bool) string {
+	if behindProxy {
+		if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+			return ip
+		}
+	}
+	return r.RemoteAddr
 }
 
 type responseWriterNoBody struct {
