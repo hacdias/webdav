@@ -63,6 +63,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 			AllowedOrigins:     c.CORS.AllowedHosts,
 			AllowedMethods:     c.CORS.AllowedMethods,
 			AllowedHeaders:     c.CORS.AllowedHeaders,
+			ExposedHeaders:     c.CORS.ExposedHeaders,
 			OptionsPassthrough: false,
 		}).Handler(h), nil
 	}
