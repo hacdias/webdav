@@ -192,24 +192,46 @@ cors:
 }
 
 func TestConfigRules(t *testing.T) {
-	content := `
+	t.Run("Only Regex or Path", func(t *testing.T) {
+		content := `
+directory: /
+rules:
+  - regex: '^.+\.js$'
+    path: /public/access/`
+
+		writeAndParseConfigWithError(t, content, ".yaml", "cannot define both regex and path")
+	})
+
+	t.Run("Regex or Path Required", func(t *testing.T) {
+		content := `
+directory: /
+rules:
+  - permissions: CRUD`
+
+		writeAndParseConfigWithError(t, content, ".yaml", "must either define a path of a regex")
+	})
+
+	t.Run("Parse", func(t *testing.T) {
+		content := `
 directory: /
 rules:
   - regex: '^.+\.js$'
   - path: /public/access/`
 
-	cfg := writeAndParseConfig(t, content, ".yaml")
-	require.NoError(t, cfg.Validate())
+		cfg := writeAndParseConfig(t, content, ".yaml")
+		require.NoError(t, cfg.Validate())
 
-	require.Len(t, cfg.Rules, 2)
+		require.Len(t, cfg.Rules, 2)
 
-	require.Empty(t, cfg.Rules[0].Path)
-	require.NotNil(t, cfg.Rules[0].Regex)
-	require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
-	require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
+		require.Empty(t, cfg.Rules[0].Path)
+		require.NotNil(t, cfg.Rules[0].Regex)
+		require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
+		require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
 
-	require.NotEmpty(t, cfg.Rules[1].Path)
-	require.Nil(t, cfg.Rules[1].Regex)
+		require.NotEmpty(t, cfg.Rules[1].Path)
+		require.Nil(t, cfg.Rules[1].Regex)
+	})
+
 }
 
 func TestConfigEnv(t *testing.T) {

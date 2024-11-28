@@ -16,6 +16,10 @@ type Rule struct {
 }
 
 func (r *Rule) Validate() error {
+	if r.Regex == nil && r.Path == "" {
+		return errors.New("invalid rule: must either define a path of a regex")
+	}
+
 	if r.Regex != nil && r.Path != "" {
 		return errors.New("invalid rule: cannot define both regex and path")
 	}
