@@ -3,6 +3,7 @@ module github.com/hacdias/webdav/v5
 go 1.23
 
 require (
+	github.com/coreos/go-systemd/v22 v22.3.2
 	github.com/go-viper/mapstructure/v2 v2.2.1
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.8.1
