@@ -86,8 +86,20 @@ directory: .
 # permissions. For example, to allow to read and create, set "RC". Default is "R".
 permissions: R
 
-# The default permissions rules for users. Default is none.
+# The default permissions rules for users. Default is none. Rules are applied
+# from last to first, that is, the first rule that matches the request, starting
+# from the end, will be applied to the request.
 rules: []
+
+# The behavior of redefining the rules for users. It can be:
+# - overwrite: when a user has rules defined, these will overwrite any global
+#   rules already defined. That is, the global rules are not applicable to the
+#   user.
+# - append: when a user has rules defined, these will be appended to the global
+#   rules already defined. That is, for this user, their own specific rules will
+#   be checked first, and then the global rules.
+# Default is 'overwrite'.
+rulesBehavior: overwrite
 
 # Logging configuration
 log:
