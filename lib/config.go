@@ -75,6 +75,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Prefix", DefaultPrefix)
 
 	// Other defaults
+	v.SetDefault("RulesBehavior", RulesOverwrite)
 	v.SetDefault("Directory", ".")
 	v.SetDefault("Permissions", "R")
 	v.SetDefault("Debug", false)
@@ -115,7 +116,21 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 			cfg.Users[i].Permissions = cfg.Permissions
 		}
 
-		if !v.IsSet(fmt.Sprintf("Users.%d.Rules", i)) {
+		if !v.IsSet(fmt.Sprintf("Users.%d.RulesBehavior", i)) {
+			cfg.Users[i].RulesBehavior = cfg.RulesBehavior
+		}
+
+		if v.IsSet(fmt.Sprintf("Users.%d.Rules", i)) {
+			switch cfg.Users[i].RulesBehavior {
+			case RulesOverwrite:
+				// Do nothing
+			case RulesAppend:
+				rules := append([]*Rule{}, cfg.Rules...)
+				rules = append(rules, cfg.Users[i].Rules...)
+
+				cfg.Users[i].Rules = rules
+			}
+		} else {
 			cfg.Users[i].Rules = cfg.Rules
 		}
 	}

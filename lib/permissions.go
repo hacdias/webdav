@@ -36,10 +36,18 @@ func (r *Rule) Matches(path string) bool {
 	return strings.HasPrefix(path, r.Path)
 }
 
+type RulesBehavior string
+
+const (
+	RulesOverwrite RulesBehavior = "overwrite"
+	RulesAppend    RulesBehavior = "append"
+)
+
 type UserPermissions struct {
-	Directory   string
-	Permissions Permissions
-	Rules       []*Rule
+	Directory     string
+	Permissions   Permissions
+	Rules         []*Rule
+	RulesBehavior RulesBehavior
 }
 
 // Allowed checks if the user has permission to access a directory/file
@@ -89,6 +97,13 @@ func (p *UserPermissions) Validate() error {
 		if err := r.Validate(); err != nil {
 			return fmt.Errorf("invalid permissions: %w", err)
 		}
+	}
+
+	switch p.RulesBehavior {
+	case RulesAppend, RulesOverwrite:
+		// Good to go
+	default:
+		return fmt.Errorf("invalid rule behavior: %s", p.RulesBehavior)
 	}
 
 	return nil
