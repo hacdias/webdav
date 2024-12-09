@@ -10,6 +10,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/hacdias/webdav/v5/lib"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
@@ -115,7 +116,21 @@ func getListener(cfg *lib.Config) (net.Listener, error) {
 		network string
 	)
 
-	if strings.HasPrefix(cfg.Address, "unix:") {
+	if strings.HasPrefix(cfg.Address, "sd-listen-fd:") {
+		listeners, err := activation.ListenersWithNames()
+		if err != nil {
+			return nil, err
+		}
+
+		address := cfg.Address[13:]
+		listener, ok := listeners[address]
+
+		if !ok || len(listener) < 1 {
+			return nil, errors.New("unknown sd-listen-fd address '" + address + "'")
+		}
+
+		return listener[0], nil
+	} else if strings.HasPrefix(cfg.Address, "unix:") {
 		address = cfg.Address[5:]
 		network = "unix"
 	} else {
