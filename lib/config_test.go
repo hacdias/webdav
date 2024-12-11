@@ -192,24 +192,111 @@ cors:
 }
 
 func TestConfigRules(t *testing.T) {
-	content := `
+	t.Run("Only Regex or Path", func(t *testing.T) {
+		content := `
+directory: /
+rules:
+  - regex: '^.+\.js$'
+    path: /public/access/`
+
+		writeAndParseConfigWithError(t, content, ".yaml", "cannot define both regex and path")
+	})
+
+	t.Run("Regex or Path Required", func(t *testing.T) {
+		content := `
+directory: /
+rules:
+  - permissions: CRUD`
+
+		writeAndParseConfigWithError(t, content, ".yaml", "must either define a path of a regex")
+	})
+
+	t.Run("Parse", func(t *testing.T) {
+		content := `
 directory: /
 rules:
   - regex: '^.+\.js$'
   - path: /public/access/`
 
-	cfg := writeAndParseConfig(t, content, ".yaml")
-	require.NoError(t, cfg.Validate())
+		cfg := writeAndParseConfig(t, content, ".yaml")
+		require.NoError(t, cfg.Validate())
 
-	require.Len(t, cfg.Rules, 2)
+		require.Len(t, cfg.Rules, 2)
 
-	require.Empty(t, cfg.Rules[0].Path)
-	require.NotNil(t, cfg.Rules[0].Regex)
-	require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
-	require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
+		require.Empty(t, cfg.Rules[0].Path)
+		require.NotNil(t, cfg.Rules[0].Regex)
+		require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
+		require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
 
-	require.NotEmpty(t, cfg.Rules[1].Path)
-	require.Nil(t, cfg.Rules[1].Regex)
+		require.NotEmpty(t, cfg.Rules[1].Path)
+		require.Nil(t, cfg.Rules[1].Regex)
+	})
+
+	t.Run("Rules Behavior (Default: Overwrite)", func(t *testing.T) {
+		content := `
+directory: /
+rules:
+  - regex: '^.+\.js$'
+  - path: /public/access/
+
+users:
+  - username: foo
+    password: bar
+    rules:
+    - path: /private/access/`
+
+		cfg := writeAndParseConfig(t, content, ".yaml")
+		require.NoError(t, cfg.Validate())
+
+		require.Len(t, cfg.Rules, 2)
+
+		require.Empty(t, cfg.Rules[0].Path)
+		require.NotNil(t, cfg.Rules[0].Regex)
+		require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
+		require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
+
+		require.EqualValues(t, "/public/access/", cfg.Rules[1].Path)
+		require.Nil(t, cfg.Rules[1].Regex)
+
+		require.Len(t, cfg.Users, 1)
+		require.Len(t, cfg.Users[0].Rules, 1)
+		require.EqualValues(t, "/private/access/", cfg.Users[0].Rules[0].Path)
+	})
+
+	t.Run("Rules Behavior (Append)", func(t *testing.T) {
+		content := `
+directory: /
+rules:
+  - regex: '^.+\.js$'
+  - path: /public/access/
+rulesBehavior: append
+
+users:
+  - username: foo
+    password: bar
+    rules:
+    - path: /private/access/`
+
+		cfg := writeAndParseConfig(t, content, ".yaml")
+		require.NoError(t, cfg.Validate())
+
+		require.Len(t, cfg.Rules, 2)
+
+		require.Empty(t, cfg.Rules[0].Path)
+		require.NotNil(t, cfg.Rules[0].Regex)
+		require.True(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.js"))
+		require.False(t, cfg.Rules[0].Regex.MatchString("/my/path/to/file.ts"))
+
+		require.EqualValues(t, "/public/access/", cfg.Rules[1].Path)
+		require.Nil(t, cfg.Rules[1].Regex)
+
+		require.Len(t, cfg.Users, 1)
+		require.Len(t, cfg.Users[0].Rules, 3)
+
+		require.EqualValues(t, cfg.Rules[0], cfg.Users[0].Rules[0])
+		require.EqualValues(t, cfg.Rules[1], cfg.Users[0].Rules[1])
+		require.EqualValues(t, "/private/access/", cfg.Users[0].Rules[2].Path)
+	})
 }
 
 func TestConfigEnv(t *testing.T) {
