@@ -139,6 +139,8 @@ users:
   - username: admin
     password: admin
   # Example 'john' user with bcrypt encrypted password, with custom directory.
+  # You can generate a bcrypt-encrypted password by using the 'webdav bcrypt'
+  # command lint utility.
   - username: john
     password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
     directory: /another/path
