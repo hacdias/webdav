@@ -49,6 +49,12 @@ docker run \
   ghcr.io/hacdias/webdav -c /config.yml
 ```
 
+If you are using [fail2ban](#fail2ban-setup), it would be helpful to add the parameters listed below. They will assist in analyzing the log.
+```bash
+--log-driver journald \
+--name webdav \
+```
+
 ## Configuration
 
 The configuration can be provided as a YAML, JSON or TOML file. Below is an example of a YAML configuration file with all the options available, as well as what they mean.
@@ -223,10 +229,8 @@ before = common.conf
 
 [Definition]
 # Failregex to match "invalid password" and extract remote_address only
-failregex = ^.*invalid password\s*\{.*"remote_address":\s*"<HOST>"\s*\}
-
-# Failregex to match "invalid username" and extract remote_address only (if applicable)
-failregex += ^.*invalid username\s*\{.*"remote_address":\s*"<HOST>"\s*\}
+failregex = ^.*invalid password\s*\{.*"remote_address":\s*"<HOST>:\d+"\s*\}
+            ^.*invalid username\s*\{.*"remote_address":\s*"<HOST>:\d+"\s*\}
 
 ignoreregex =
 ```
@@ -250,6 +254,8 @@ ignoreself = false
 
 - Replace `[your_port]` with the port your WebDAV server is running on.
 - Replace `[your_log_path]` with the path to your WebDAV log file.
+
+If you use it with Docker and `--log-driver journald`, replace `logpath` with `journalmatch = CONTAINER_NAME=[your_container_name]`
 
 #### Final Steps
 
