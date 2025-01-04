@@ -19,6 +19,7 @@ type handlerUser struct {
 type Handler struct {
 	noPassword  bool
 	behindProxy bool
+	prefix      string
 	user        *handlerUser
 	users       map[string]*handlerUser
 }
@@ -27,12 +28,12 @@ func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
+		prefix:      c.Prefix,
 		user: &handlerUser{
 			User: User{
 				UserPermissions: c.UserPermissions,
 			},
 			Handler: webdav.Handler{
-				Prefix: c.Prefix,
 				FileSystem: Dir{
 					Dir:     webdav.Dir(c.Directory),
 					noSniff: c.NoSniff,
@@ -47,7 +48,6 @@ func NewHandler(c *Config) (http.Handler, error) {
 		h.users[u.Username] = &handlerUser{
 			User: u,
 			Handler: webdav.Handler{
-				Prefix: c.Prefix,
 				FileSystem: Dir{
 					Dir:     webdav.Dir(u.Directory),
 					noSniff: c.NoSniff,
@@ -116,18 +116,48 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		zap.L().Info("user authorized", zap.String("username", username), zap.String("remote_address", remoteAddr))
 	}
 
-	// Cleanup destination header if it's present by stripping out the prefix
-	// and only keeping the path.
+	// Validate and clean destination header if it exists, by stripping out the
+	// prefix and only keeping the actual destination path, always prefixed by
+	// a forward slash to ensure that the rules can successful match the path.
 	if destination := r.Header.Get("Destination"); destination != "" {
 		u, err := url.Parse(destination)
-		if err == nil {
-			destination = strings.TrimPrefix(u.Path, user.Prefix)
-			if !strings.HasPrefix(destination, "/") {
-				destination = "/" + destination
+		if err != nil {
+			http.Error(w, "Invalid Destination header", http.StatusBadRequest)
+			return
+		}
+
+		if h.prefix != "" {
+			destination = strings.TrimPrefix(u.Path, h.prefix)
+			if len(destination) >= len(u.Path) {
+				http.Error(w, "Invalid URL prefix", http.StatusBadRequest)
+				return
 			}
-			r.Header.Set("Destination", destination)
+		}
+
+		if !strings.HasPrefix(destination, "/") {
+			destination = "/" + destination
+		}
+
+		r.Header.Set("Destination", destination)
+	}
+
+	// Clean up URL path by stripping out the prefix, and ensuring it always begins
+	// with a forward slash, so that it can match against the rules.
+	path := r.URL.Path
+
+	if h.prefix != "" {
+		path = strings.TrimPrefix(r.URL.Path, h.prefix)
+		if len(path) >= len(r.URL.Path) {
+			http.Error(w, "Invalid URL prefix", http.StatusBadRequest)
+			return
 		}
 	}
+
+	if !strings.HasPrefix(path, "/") {
+		path = "/" + path
+	}
+
+	r.URL.Path = path
 
 	// Checks for user permissions relatively to this PATH.
 	allowed := user.Allowed(r, func(filename string) bool {
