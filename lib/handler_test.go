@@ -292,6 +292,82 @@ users:
 	require.ErrorContains(t, err, "403")
 }
 
+func TestServerRulesPrefix(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt":   []byte("foo"),
+		"bar.js":    []byte("foo js"),
+		"a/foo.js":  []byte("foo js"),
+		"a/foo.txt": []byte("foo txt"),
+		"b/foo.txt": []byte("foo b"),
+		"c/a.txt":   []byte("b"),
+		"c/b.txt":   []byte("b"),
+		"c/c.txt":   []byte("b"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+prefix: /prefix
+
+users:
+  - username: basic
+    password: basic
+    rules:
+    - regex: "^.+.js$"
+      permissions: R
+    - path: "/b/"
+      permissions: R
+    - path: "/a/foo.txt"
+      permissions: none
+    - path: "/c/"
+      permissions: none
+`, dir))
+
+	client := gowebdav.NewClient(srv.URL, "basic", "basic")
+
+	files, err := client.ReadDir("/prefix")
+	require.NoError(t, err)
+	require.Len(t, files, 5)
+
+	err = client.Write("/prefix/foo.txt", []byte("new"), 0666)
+	require.NoError(t, err)
+
+	err = client.Write("/prefix/new.txt", []byte("new"), 0666)
+	require.NoError(t, err)
+
+	err = client.Copy("/prefix/bar.js", "/prefix/b/bar.js", false)
+	require.ErrorContains(t, err, "403")
+
+	err = client.Copy("/prefix/bar.js", "/prefix/bar.jsx", false)
+	require.NoError(t, err)
+
+	err = client.Copy("/prefix/b/foo.txt", "/prefix/foo1.txt", false)
+	require.NoError(t, err)
+
+	err = client.Rename("/prefix/b/foo.txt", "/prefix/foo2.txt", false)
+	require.ErrorContains(t, err, "403")
+
+	_, err = client.Read("/prefix/a/foo.txt")
+	require.ErrorContains(t, err, "403")
+
+	err = client.Write("/prefix/a/foo.js", []byte("new"), 0666)
+	require.ErrorContains(t, err, "403")
+
+	err = client.Write("/prefix/b/foo.txt", []byte("new"), 0666)
+	require.ErrorContains(t, err, "403")
+
+	_, err = client.ReadDir("/prefix/c")
+	require.ErrorContains(t, err, "403")
+
+	_, err = client.Read("/prefix/c/a.txt")
+	require.ErrorContains(t, err, "403")
+
+	err = client.Write("/prefix/c/b.txt", []byte("new"), 0666)
+	require.ErrorContains(t, err, "403")
+}
+
 func TestServerPermissions(t *testing.T) {
 	t.Parallel()
 
