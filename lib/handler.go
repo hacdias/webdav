@@ -146,8 +146,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//		"index.html" resource, a human-readable view of the contents of
 	//		the collection, or something else altogether.
 	//
+	//      Similarly, since the definition of HEAD is a GET without a response
+	//      message body, the semantics of HEAD are unmodified when applied to
+	//      collection resources.
+	//
 	// Get, when applied to collection, will return the same as PROPFIND method.
-	if r.Method == "GET" && strings.HasPrefix(r.URL.Path, user.Prefix) {
+	if (r.Method == "GET" || r.Method == "HEAD") && strings.HasPrefix(r.URL.Path, user.Prefix) {
 		info, err := user.FileSystem.Stat(r.Context(), strings.TrimPrefix(r.URL.Path, user.Prefix))
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
