@@ -181,5 +181,5 @@ type responseWriterNoBody struct {
 }
 
 func (w responseWriterNoBody) Write(data []byte) (int, error) {
-	return 0, nil
+	return len(data), nil
 }
