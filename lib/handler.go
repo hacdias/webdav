@@ -1,11 +1,13 @@
 package lib
 
 import (
+	"log"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 
-	"github.com/rs/cors"
 	"go.uber.org/zap"
 	"golang.org/x/net/webdav"
 )
@@ -19,10 +21,11 @@ type Handler struct {
 	noPassword  bool
 	behindProxy bool
 	user        *handlerUser
-	users       map[string]*handlerUser
+	users       sync.Map
+	counter     atomic.Int32
 }
 
-func NewHandler(c *Config) (http.Handler, error) {
+func NewHandler(c *Config) (*Handler, error) {
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
@@ -39,11 +42,12 @@ func NewHandler(c *Config) (http.Handler, error) {
 				LockSystem: webdav.NewMemLS(),
 			},
 		},
-		users: map[string]*handlerUser{},
+		// users: map[string]*handlerUser{},
 	}
 
 	for _, u := range c.Users {
-		h.users[u.Username] = &handlerUser{
+		h.counter.Add(1)
+		h.users.Store(u.Username, &handlerUser{
 			User: u,
 			Handler: webdav.Handler{
 				Prefix: c.Prefix,
@@ -53,18 +57,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 				},
 				LockSystem: webdav.NewMemLS(),
 			},
-		}
-	}
-
-	if c.CORS.Enabled {
-		return cors.New(cors.Options{
-			AllowCredentials:   c.CORS.Credentials,
-			AllowedOrigins:     c.CORS.AllowedHosts,
-			AllowedMethods:     c.CORS.AllowedMethods,
-			AllowedHeaders:     c.CORS.AllowedHeaders,
-			ExposedHeaders:     c.CORS.ExposedHeaders,
-			OptionsPassthrough: false,
-		}).Handler(h), nil
+		})
 	}
 
 	if len(c.Users) == 0 {
@@ -78,12 +71,61 @@ func NewHandler(c *Config) (http.Handler, error) {
 	return h, nil
 }
 
+func (h *Handler) UpdateUsers(c *Config) {
+	for _, u := range c.Users {
+		v, ok := h.users.Load(u.Username)
+		if ok {
+			handler, ok := v.(*handlerUser)
+			if !ok {
+				continue
+			}
+
+			handler.User = u
+			log.Printf("handler.User:%+v  u:%+v\n", handler.User, u)
+			continue
+		}
+
+		h.counter.Add(1)
+		h.users.Store(u.Username, &handlerUser{
+			User: u,
+			Handler: webdav.Handler{
+				Prefix: c.Prefix,
+				FileSystem: Dir{
+					Dir:     webdav.Dir(u.Directory),
+					noSniff: c.NoSniff,
+				},
+				LockSystem: webdav.NewMemLS(),
+			},
+		})
+	}
+
+	h.users.Range(func(key, value any) bool {
+		username, ok := key.(string)
+		if !ok {
+			return true
+		}
+
+		delete := true
+		for _, u := range c.Users {
+			if u.Username == username {
+				delete = false
+			}
+		}
+
+		if delete {
+			h.users.Delete(username)
+			h.counter.Add(-1)
+		}
+		return true
+	})
+}
+
 // ServeHTTP determines if the request is for this plugin, and if all prerequisites are met.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user := h.user
 
 	// Authentication
-	if len(h.users) > 0 {
+	if h.counter.Load() > 0 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 
 		// Retrieve the real client IP address using the updated helper function
@@ -96,10 +138,18 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, ok = h.users[username]
+		v, ok := h.users.Load(username)
 		if !ok {
 			// Log invalid username
 			zap.L().Info("invalid username", zap.String("username", username), zap.String("remote_address", remoteAddr))
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			return
+		}
+
+		user, ok := v.(*handlerUser)
+		if !ok {
+			// Log invalid hander
+			zap.L().Info("invalid hander", zap.String("username", username), zap.String("remote_address", remoteAddr))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
