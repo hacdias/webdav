@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/hacdias/webdav/v5/lib"
+	"github.com/rs/cors"
 	"github.com/spf13/cobra"
 	"go.uber.org/zap"
 )
@@ -84,13 +86,26 @@ set WD_CERT.`,
 		quit := make(chan os.Signal, 1)
 
 		go func() {
+			var h http.Handler
 			zap.L().Info("listening", zap.String("address", listener.Addr().String()))
+
+			h = handler
+			if cfg.CORS.Enabled {
+				h = cors.New(cors.Options{
+					AllowCredentials:   cfg.CORS.Credentials,
+					AllowedOrigins:     cfg.CORS.AllowedHosts,
+					AllowedMethods:     cfg.CORS.AllowedMethods,
+					AllowedHeaders:     cfg.CORS.AllowedHeaders,
+					ExposedHeaders:     cfg.CORS.ExposedHeaders,
+					OptionsPassthrough: false,
+				}).Handler(handler)
+			}
 
 			var err error
 			if cfg.TLS {
-				err = http.ServeTLS(listener, handler, cfg.Cert, cfg.Key)
+				err = http.ServeTLS(listener, h, cfg.Cert, cfg.Key)
 			} else {
-				err = http.Serve(listener, handler)
+				err = http.Serve(listener, h)
 			}
 
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -100,11 +115,33 @@ set WD_CERT.`,
 			quit <- os.Interrupt
 		}()
 
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-		signal := <-quit
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+		for {
+			signal := <-quit
+			switch signal {
+			case os.Interrupt, syscall.SIGTERM:
+				zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
+				_ = listener.Close()
+				return nil
+			case syscall.SIGHUP:
+				log.Printf("reload configure\n")
+				cfg, err := lib.ParseConfig(cfgFilename, flags)
+				if err != nil {
+					log.Printf("parse config: %s\n", err.Error())
+					continue
+				}
 
-		zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
-		_ = listener.Close()
+				// Setup the logger based on the configuration
+				logger, err := cfg.GetLogger()
+				if err != nil {
+					log.Printf("get logger: %s\n", err.Error())
+					continue
+				}
+				zap.ReplaceGlobals(logger)
+
+				handler.UpdateUsers(cfg)
+			}
+		}
 
 		return nil
 	},
