@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -81,7 +80,6 @@ func (h *Handler) UpdateUsers(c *Config) {
 			}
 
 			handler.User = u
-			log.Printf("handler.User:%+v  u:%+v\n", handler.User, u)
 			continue
 		}
 
