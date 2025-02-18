@@ -80,6 +80,10 @@ func (h *Handler) UpdateUsers(c *Config) {
 			}
 
 			handler.User = u
+			handler.FileSystem = Dir{
+				Dir:     webdav.Dir(u.Directory),
+				noSniff: c.NoSniff,
+			}
 			continue
 		}
 
@@ -144,7 +148,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		user, ok := v.(*handlerUser)
+		user, ok = v.(*handlerUser)
 		if !ok {
 			// Log invalid hander
 			zap.L().Info("invalid hander", zap.String("username", username), zap.String("remote_address", remoteAddr))
