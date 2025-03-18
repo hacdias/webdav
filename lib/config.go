@@ -40,7 +40,7 @@ type Config struct {
 }
 
 func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
-	v := viper.New()
+	v := viper.NewWithOptions(viper.ExperimentalBindStruct())
 
 	// Configure flags bindings
 	if flags != nil {
@@ -62,9 +62,6 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetEnvPrefix("wd")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
-	// TODO: use new env struct bind feature when it's released in viper.
-	// This should make it redundant to set defaults for things that are
-	// empty or false.
 
 	// Defaults shared with flags
 	v.SetDefault("TLS", DefaultTLS)
