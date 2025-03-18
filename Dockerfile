@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine3.20 AS build
+FROM golang:1.24-alpine3.20 AS build
 
 ARG VERSION="untracked"
 
