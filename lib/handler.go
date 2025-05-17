@@ -23,6 +23,8 @@ type Handler struct {
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
+	ls := webdav.NewMemLS()
+
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
@@ -36,7 +38,10 @@ func NewHandler(c *Config) (http.Handler, error) {
 					Dir:     webdav.Dir(c.Directory),
 					noSniff: c.NoSniff,
 				},
-				LockSystem: webdav.NewMemLS(),
+				LockSystem: &lockSystem{
+					LockSystem: ls,
+					directory:  c.Directory,
+				},
 			},
 		},
 		users: map[string]*handlerUser{},
@@ -51,7 +56,10 @@ func NewHandler(c *Config) (http.Handler, error) {
 					Dir:     webdav.Dir(u.Directory),
 					noSniff: c.NoSniff,
 				},
-				LockSystem: webdav.NewMemLS(),
+				LockSystem: &lockSystem{
+					LockSystem: ls,
+					directory:  u.Directory,
+				},
 			},
 		}
 	}
