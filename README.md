@@ -94,7 +94,8 @@ permissions: R
 
 # The default permissions rules for users. Default is none. Rules are applied
 # from last to first, that is, the first rule that matches the request, starting
-# from the end, will be applied to the request.
+# from the end, will be applied to the request. Rule paths are always relative to
+# the user's directory.
 rules: []
 
 # The behavior of redefining the rules for users. It can be:
@@ -158,14 +159,15 @@ users:
     # Override default permissions.
     permissions: CRUD
     rules:
-      # With this rule, the user CANNOT access /some/files.
+      # With this rule, the user CANNOT access {user directory}/some/files.
       - path: /some/file
         permissions: none
-      # With this rule, the user CAN create, read, update and delete within /public/access.
+      # With this rule, the user CAN create, read, update and delete within
+      # {user directory}/public/access.
       - path: /public/access/
         permissions: CRUD
-      # With this rule, the user CAN read and update all files ending with .js. It uses
-      # a regular expression.
+      # With this rule, the user CAN read and update all files ending with .js.
+      # It uses a regular expression.
       - regex: "^.+.js$"
         permissions: RU
 ```
