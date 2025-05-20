@@ -3,6 +3,7 @@ package lib
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -53,6 +54,10 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	// Configuration file settings
 	v.AddConfigPath(".")
 	v.AddConfigPath("/etc/webdav/")
+	if path, err := os.Executable(); err == nil {
+		v.AddConfigPath(filepath.Dir(path))
+	}
+
 	v.SetConfigName("config")
 	if filename != "" {
 		v.SetConfigFile(filename)
