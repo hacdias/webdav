@@ -193,6 +193,14 @@ location / {
   proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   proxy_set_header Host $host;
   proxy_redirect off;
+
+  # Ensure COPY and MOVE commands work. Change https://example.com to the
+  # correct address where the WebDAV server will be deployed at.
+  set $dest $http_destination;
+  if ($http_destination ~ "^https://example.com(?<path>(.+))") {
+    set $dest /$path;
+  }
+  proxy_set_header Destination $dest;
 }
 ```
 
