@@ -14,7 +14,7 @@ For a manual install, please refer to the [releases](https://github.com/hacdias/
 go install github.com/hacdias/webdav/v5@latest
 ```
 
-### Brew
+### Homebrew
 
 If you have Homebrew available on your system, you can also install `webdav` using it: 
 
