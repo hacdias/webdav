@@ -1,0 +1,13 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: WebDAV CGO Library
+Description: @CMAKE_PROJECT_DESCRIPTION@
+Version: @CMAKE_PROJECT_VERSION@
+URL: https://github.com/jimmy54/webdav
+
+Cflags: -I${includedir}
+Libs: -L${libdir} -lwebdav_@OS_NAME@_@ARCH_NAME@
+Libs.private: @WEBDAV_PRIVATE_LIBS@ 

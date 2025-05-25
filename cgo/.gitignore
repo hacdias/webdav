@@ -11,6 +11,10 @@ examples/c_example_static
 examples/c_example_dynamic
 examples/c_example_daemon
 
+# CMake 构建目录
+build/
+cmake-build-*/
+
 # 日志文件
 *.log
 

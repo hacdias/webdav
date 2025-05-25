@@ -24,6 +24,102 @@
 | macOS   | ARM64 | ✅ | ✅ |
 | Windows | AMD64 | ✅ | ✅ |
 
+## 构建
+
+### 方法一：使用 Shell 脚本（推荐）
+
+```bash
+# 构建所有平台的静态库和动态库
+./build.sh -a
+
+# 构建特定平台
+./build.sh -t linux/amd64 -s -d
+./build.sh -t darwin/arm64 -s -d
+./build.sh -t windows/amd64 -s -d
+
+# 只构建静态库
+./build.sh -t darwin/arm64 -s
+
+# 只构建动态库
+./build.sh -t darwin/arm64 -d
+```
+
+### 方法二：使用 CMake
+
+CMake 提供了更现代的构建体验，支持 IDE 集成和更灵活的配置。
+
+#### 前提条件
+
+1. **安装 CMake 3.16+**
+   ```bash
+   # macOS
+   brew install cmake
+   
+   # Ubuntu/Debian
+   sudo apt-get install cmake
+   
+   # CentOS/RHEL
+   sudo yum install cmake
+   ```
+
+2. **先构建 Go 库**
+   ```bash
+   ./build.sh -t darwin/arm64 -s -d  # 构建静态库和动态库
+   ```
+
+#### 使用 CMake 构建脚本
+
+```bash
+# 基本构建
+./cmake_build.sh
+
+# 调试模式构建
+./cmake_build.sh -t Debug -v
+
+# 清理并重新构建
+./cmake_build.sh -c
+
+# 构建并安装
+./cmake_build.sh --install
+
+# 只构建静态库示例
+./cmake_build.sh --no-dynamic
+
+# 查看所有选项
+./cmake_build.sh --help
+```
+
+#### 手动使用 CMake
+
+```bash
+# 创建构建目录
+mkdir build && cd build
+
+# 配置项目
+cmake ..
+
+# 构建
+cmake --build .
+
+# 运行测试
+make test
+
+# 安装（可选）
+cmake --install .
+```
+
+#### CMake 构建选项
+
+| 选项 | 默认值 | 描述 |
+|------|--------|------|
+| `BUILD_STATIC` | ON | 构建静态库示例 |
+| `BUILD_DYNAMIC` | ON | 构建动态库示例 |
+| `BUILD_EXAMPLES` | ON | 构建示例程序 |
+| `BUILD_TESTS` | ON | 构建测试 |
+| `CMAKE_BUILD_TYPE` | Release | 构建类型 |
+
+详细的 CMake 使用说明请参考 [CMAKE.md](CMAKE.md)。
+
 ## 快速开始
 
 ### 1. 构建库
