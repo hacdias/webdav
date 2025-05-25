@@ -14,6 +14,14 @@ For a manual install, please refer to the [releases](https://github.com/hacdias/
 go install github.com/hacdias/webdav/v5@latest
 ```
 
+### Brew
+
+If you have Homebrew available on your system, you can also install `webdav` using it: 
+
+```
+brew install webdav
+```
+
 ### Docker
 
 Docker images are provided on both [GitHub's registry](https://github.com/hacdias/webdav/pkgs/container/webdav) and [Docker Hub](https://hub.docker.com/r/hacdias/webdav). You can pull the images using one of the following two commands. Note that this commands pull the latest released version. You can use specific tags to pin specific versions, or use `main` for the development branch.
