@@ -1,0 +1,37 @@
+# 编译输出
+dist/
+*.a
+*.so
+*.dylib
+*.dll
+
+# 示例程序编译输出
+examples/c_example
+examples/c_example_static
+examples/c_example_dynamic
+examples/c_example_daemon
+
+# 日志文件
+*.log
+
+# 测试文件
+examples/webdav_root/
+examples/test_upload.txt
+examples/downloaded.txt
+
+# Go 模块缓存
+go.sum
+
+# 临时文件
+*.tmp
+*.temp
+*~
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS 文件
+.DS_Store 
