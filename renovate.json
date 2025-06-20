@@ -3,5 +3,8 @@
   "extends": [
     "config:recommended",
     "group:all"
+  ],
+  "postUpdateOptions": [
+    "gomodTidy"
   ]
 }
