@@ -47,7 +47,7 @@ type noSniffFileInfo struct {
 }
 
 func (w noSniffFileInfo) ContentType(ctx context.Context) (contentType string, err error) {
-	if mimeType := mime.TypeByExtension(path.Ext(w.FileInfo.Name())); mimeType != "" {
+	if mimeType := mime.TypeByExtension(path.Ext(w.Name())); mimeType != "" {
 		// We can figure out the mime from the extension.
 		return mimeType, nil
 	} else {
