@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
       - uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
