@@ -191,9 +191,10 @@ The `allowed_*` properties are optional, the default value for each of them will
 
 ### Reverse Proxy Service
 
-When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct headers in order to avoid 502 errors. Here's a Nginx configuration example:
+When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct headers in order to avoid 502 errors.
 
-#### nginx
+#### Nginx Configuration Example
+
 ```nginx
 location / {
   proxy_pass http://127.0.0.1:8080;
@@ -213,7 +214,8 @@ location / {
 }
 ```
 
-#### Caddy
+#### Caddy Configuration Example
+
 ```Caddyfile
 example.com {
     tls internal # for local development
