@@ -191,7 +191,9 @@ The `allowed_*` properties are optional, the default value for each of them will
 
 ### Reverse Proxy Service
 
-When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct headers in order to avoid 502 errors. Here's a Nginx configuration example:
+When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct headers in order to avoid 502 errors.
+
+#### Nginx Configuration Example
 
 ```nginx
 location / {
@@ -209,6 +211,24 @@ location / {
     set $dest /$path;
   }
   proxy_set_header Destination $dest;
+}
+```
+
+#### Caddy Configuration Example
+
+```Caddyfile
+example.com {
+    tls internal # for local development
+    # tls name@email.com # so that Caddy gets certs for you via Letsencrypt
+
+    # Rewrites destination to remove host and include only the path e.g. /test.txt
+    @hasDest header_regexp dest ^https?://[^/]+(.*)$
+    header @hasDest Destination {re.dest.1}
+
+    reverse_proxy 127.0.0.1:6065 { # if running on the same network in docker you can just point to the service name e.g. webdav:6065
+        header_up X-Real-IP {remote_host}
+        header_up REMOTE-HOST {remote_host}
+    }
 }
 ```
 
