@@ -56,9 +56,11 @@ func (p UserPermissions) Allowed(r *request, fileExists func(string) bool) bool 
 	// we fail immediately. If no rule matches, we check the global permissions.
 	if r.method == "COPY" || r.method == "MOVE" {
 		dst := r.destination
+		ruleMatched := false
 
 		for i := len(p.Rules) - 1; i >= 0; i-- {
 			if p.Rules[i].Matches(dst) {
+				ruleMatched = true
 				if !p.Rules[i].Permissions.AllowedDestination(r, fileExists) {
 					return false
 				}
@@ -68,7 +70,7 @@ func (p UserPermissions) Allowed(r *request, fileExists func(string) bool) bool 
 			}
 		}
 
-		if !p.Permissions.AllowedDestination(r, fileExists) {
+		if !ruleMatched && !p.Permissions.AllowedDestination(r, fileExists) {
 			return false
 		}
 	}
