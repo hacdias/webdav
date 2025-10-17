@@ -217,7 +217,7 @@ users:
 	})
 }
 
-func TestServerRules(t *testing.T) {
+func TestServerRulesRestrictive(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -290,6 +290,51 @@ users:
 
 	err = client.Write("/c/b.txt", []byte("new"), 0666)
 	require.ErrorContains(t, err, "403")
+}
+
+func TestServerRulesAdditive(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt":   []byte("foo"),
+		"bar.js":    []byte("foo js"),
+		"a/foo.js":  []byte("foo js"),
+		"a/foo.txt": []byte("foo txt"),
+		"b/foo.txt": []byte("foo b"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: none
+
+users:
+  - username: basic
+    password: basic
+    rules:
+    - regex: "^.+.js$"
+      permissions: R
+    - path: "/a/foo.txt"
+      permissions: CRU
+    - path: "/b/"
+      permissions: D
+`, dir))
+
+	client := gowebdav.NewClient(srv.URL, "basic", "basic")
+
+	_, err := client.ReadDir("/")
+	require.ErrorContains(t, err, "403")
+
+	err = client.Write("/foo.txt", []byte("new"), 0666)
+	require.ErrorContains(t, err, "403")
+
+	err = client.Write("/new.txt", []byte("new"), 0666)
+	require.ErrorContains(t, err, "403")
+
+	err = client.Copy("/bar.js", "/a/foo.txt", true)
+	require.NoError(t, err)
+
+	err = client.Remove("/b/foo.txt")
+	require.NoError(t, err)
 }
 
 func TestServerRulesPrefix(t *testing.T) {
