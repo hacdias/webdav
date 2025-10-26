@@ -26,8 +26,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	ls := webdav.NewMemLS()
 
 	logFunc := func(r *http.Request, err error) {
-		remoteAddr := getRealRemoteIP(r, c.BehindProxy)
-		lZap := zap.L().With(zap.String("remoteAddr", remoteAddr))
+		lZap := getRequestLogger(r, c.BehindProxy)
 		lZap.Debug("handle webdav request", zap.String("method", r.Method), zap.String("path", r.URL.Path), zap.Error(err))
 	}
 
@@ -98,10 +97,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user := h.user
 
-	// Retrieve the real client IP address using the updated helper function
-	remoteAddr := getRealRemoteIP(r, h.behindProxy)
-
-	lZap := zap.L().With(zap.String("remoteAddr", remoteAddr))
+	lZap := getRequestLogger(r, h.behindProxy)
 
 	// Authentication
 	if len(h.users) > 0 {
@@ -182,6 +178,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Runs the WebDAV.
 	user.ServeHTTP(w, r)
+}
+
+// getRequestLogger creates a zap.Logger using the request remote ip.
+func getRequestLogger(r *http.Request, behindProxy bool) *zap.Logger {
+	// Retrieve the real client IP address using the updated helper function
+	remoteAddr := getRealRemoteIP(r, behindProxy)
+
+	return zap.L().With(zap.String("remoteAddr", remoteAddr))
 }
 
 // getRealRemoteIP retrieves the client's actual IP address, considering reverse proxies.
