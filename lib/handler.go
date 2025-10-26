@@ -185,7 +185,7 @@ func getRequestLogger(r *http.Request, behindProxy bool) *zap.Logger {
 	// Retrieve the real client IP address using the updated helper function
 	remoteAddr := getRealRemoteIP(r, behindProxy)
 
-	return zap.L().With(zap.String("remoteAddr", remoteAddr))
+	return zap.L().With(zap.String("remote_address", remoteAddr))
 }
 
 // getRealRemoteIP retrieves the client's actual IP address, considering reverse proxies.
