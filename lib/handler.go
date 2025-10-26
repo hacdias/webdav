@@ -25,6 +25,12 @@ type Handler struct {
 func NewHandler(c *Config) (http.Handler, error) {
 	ls := webdav.NewMemLS()
 
+	logFunc := func(r *http.Request, err error) {
+		remoteAddr := getRealRemoteIP(r, c.BehindProxy)
+		lZap := zap.L().With(zap.String("remoteAddr", remoteAddr))
+		lZap.Debug("handle webdav request", zap.String("method", r.Method), zap.String("path", r.URL.Path), zap.Error(err))
+	}
+
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
@@ -42,6 +48,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 					LockSystem: ls,
 					directory:  c.Directory,
 				},
+				Logger: logFunc,
 			},
 		},
 		users: map[string]*handlerUser{},
@@ -60,6 +67,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 					LockSystem: ls,
 					directory:  u.Directory,
 				},
+				Logger: logFunc,
 			},
 		}
 	}
