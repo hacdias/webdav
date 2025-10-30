@@ -25,6 +25,11 @@ type Handler struct {
 func NewHandler(c *Config) (http.Handler, error) {
 	ls := webdav.NewMemLS()
 
+	logFunc := func(r *http.Request, err error) {
+		lZap := getRequestLogger(r, c.BehindProxy)
+		lZap.Debug("handle webdav request", zap.String("method", r.Method), zap.String("path", r.URL.Path), zap.Error(err))
+	}
+
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
@@ -42,6 +47,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 					LockSystem: ls,
 					directory:  c.Directory,
 				},
+				Logger: logFunc,
 			},
 		},
 		users: map[string]*handlerUser{},
@@ -60,6 +66,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 					LockSystem: ls,
 					directory:  u.Directory,
 				},
+				Logger: logFunc,
 			},
 		}
 	}
@@ -90,12 +97,11 @@ func NewHandler(c *Config) (http.Handler, error) {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	user := h.user
 
+	lZap := getRequestLogger(r, h.behindProxy)
+
 	// Authentication
 	if len(h.users) > 0 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
-
-		// Retrieve the real client IP address using the updated helper function
-		remoteAddr := getRealRemoteIP(r, h.behindProxy)
 
 		// Gets the correct user for this request.
 		username, password, ok := r.BasicAuth()
@@ -107,26 +113,26 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		user, ok = h.users[username]
 		if !ok {
 			// Log invalid username
-			zap.L().Info("invalid username", zap.String("username", username), zap.String("remote_address", remoteAddr))
+			lZap.Info("invalid username", zap.String("username", username))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		if !h.noPassword && !user.checkPassword(password) {
 			// Log invalid password
-			zap.L().Info("invalid password", zap.String("username", username), zap.String("remote_address", remoteAddr))
+			lZap.Info("invalid password", zap.String("username", username))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		// Log successful authorization
-		zap.L().Info("user authorized", zap.String("username", username), zap.String("remote_address", remoteAddr))
+		lZap.Info("user authorized", zap.String("username", username))
 	}
 
 	// Convert the HTTP request into an internal request type
 	req, err := newRequest(r, h.user.Prefix)
 	if err != nil {
-		zap.L().Info("invalid request path or destination", zap.Error(err))
+		lZap.Info("invalid request path or destination", zap.Error(err))
 		http.Error(w, "Invalid request path or destination", http.StatusBadRequest)
 		return
 	}
@@ -137,7 +143,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return !os.IsNotExist(err)
 	})
 
-	zap.L().Debug("allowed & method & path", zap.Bool("allowed", allowed), zap.String("method", r.Method), zap.String("path", r.URL.Path))
+	lZap.Debug("allowed & method & path", zap.Bool("allowed", allowed), zap.String("method", r.Method), zap.String("path", r.URL.Path))
 
 	if !allowed {
 		w.WriteHeader(http.StatusForbidden)
@@ -172,6 +178,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Runs the WebDAV.
 	user.ServeHTTP(w, r)
+}
+
+// getRequestLogger creates a zap.Logger using the request remote ip.
+func getRequestLogger(r *http.Request, behindProxy bool) *zap.Logger {
+	// Retrieve the real client IP address using the updated helper function
+	remoteAddr := getRealRemoteIP(r, behindProxy)
+
+	return zap.L().With(zap.String("remote_address", remoteAddr))
 }
 
 // getRealRemoteIP retrieves the client's actual IP address, considering reverse proxies.
