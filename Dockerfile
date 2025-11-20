@@ -2,8 +2,6 @@ FROM golang:1.25-alpine3.22 AS build
 
 ARG VERSION="untracked"
 
-RUN apk --update add ca-certificates
-
 WORKDIR /webdav/
 
 COPY ./go.mod ./
@@ -15,7 +13,6 @@ RUN go build -o main -trimpath -ldflags="-s -w -X 'github.com/hacdias/webdav/v5/
 
 FROM scratch
 
-COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /webdav/main /bin/webdav
 
 EXPOSE 6065
