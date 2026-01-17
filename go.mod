@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/coreos/go-systemd/v22 v22.6.0
-	github.com/go-viper/mapstructure/v2 v2.4.0
+	github.com/go-viper/mapstructure/v2 v2.5.0
 	github.com/rs/cors v1.11.1
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
@@ -12,9 +12,9 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/studio-b12/gowebdav v0.11.0
 	go.uber.org/zap v1.27.1
-	golang.org/x/crypto v0.46.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/crypto/x509roots/fallback v0.0.0-20251210140736-7dacc380ba00
-	golang.org/x/net v0.48.0
+	golang.org/x/net v0.49.0
 )
 
 require (
@@ -30,7 +30,7 @@ require (
 	github.com/subosito/gotenv v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/sys v0.39.0 // indirect
-	golang.org/x/text v0.32.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
