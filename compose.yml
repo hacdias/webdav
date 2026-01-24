@@ -1,0 +1,16 @@
+name: webdav
+
+services:
+    app:
+        container_name: webdav
+        image: 'webdav:test'
+        #ports:
+        #  - '6065:6065'
+        security_opt:
+            - label=type:container_runtime_t
+        restart: always
+        volumes:
+            - ./data:/data
+            - ./config.yml:/config.yml:ro
+        #    - ./log:/var/log/webdav
+        command: ['-c', '/config.yml']
