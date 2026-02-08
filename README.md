@@ -8,9 +8,7 @@ A simple and standalone [WebDAV](https://en.wikipedia.org/wiki/WebDAV) server.
 
 ## Install
 
-For a manual install, please refer to the [releases](https://github.com/hacdias/webdav/releases) page and download the correct binary for your system. 
-Alternatively, you can build or install it from source using the Go toolchain. You can either clone the repository and 
-execute `go build`, or directly install it, using:
+For a manual install, please refer to the [releases](https://github.com/hacdias/webdav/releases) page and download the correct binary for your system. Alternatively, you can build or install it from source using the Go toolchain. You can either clone the repository and execute `go build`, or directly install it, using:
 
 ```
 go install github.com/hacdias/webdav/v5@latest
@@ -26,10 +24,7 @@ brew install webdav
 
 ### Docker
 
-Docker images are provided on both [GitHub's registry](https://github.com/hacdias/webdav/pkgs/container/webdav)and 
-[Docker Hub](https://hub.docker.com/r/hacdias/webdav). You can pull the images using one of the following two commands. 
-Note that this commands pull the latest released version. You can use specific tags to pin specific versions, or use 
-`main` for the development branch.
+Docker images are provided on both [GitHub's registry](https://github.com/hacdias/webdav/pkgs/container/webdav) and [Docker Hub](https://hub.docker.com/r/hacdias/webdav). You can pull the images using one of the following two commands. Note that this commands pull the latest released version. You can use specific tags to pin specific versions, or use `main` for the development branch.
 
 ```bash
 # GitHub Registry
@@ -45,11 +40,9 @@ For usage information regarding the CLI, run `webdav --help`.
 
 ### Container
 
-To run the container, you can refer to the `compose.yml` file that provides a minimal setup that await to be proxied.
-You need to create next to the compose file the `config.yml` using the [configuration below](#configuration).
-/!\ Dont forget to **manually** create the data folder(s) you've configured, else.
+To run the container, you can refer to the `compose.yml` file which provides a minimal setup. Additionally, you also need to create a configuration file, as [explained below](#configuration).
 
-You can also run the container using the following command :
+The equivalent Docker command to the aforementioned compose file would be as follows:
 
 ```bash
 docker run \
@@ -97,7 +90,8 @@ behindProxy: false
 
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'directory' defined.
-# By default it points to the container's working directory "/data".
+# By default it points to the working directory. In the case of the compose file above,
+# that is /data.
 directory: /data
 
 # The default permissions for users. This is a case insensitive option. Possible
@@ -123,68 +117,68 @@ rulesBehavior: overwrite
 
 # Logging configuration
 log:
-   # Logging format ('console', 'json'). Default is 'console'.
-   format: console
-   # Enable or disable colors. Default is 'true'. Only applied if format is 'console'.
-   colors: true
-   # Logging outputs. You can have more than one output. Default is only 'stderr'.
-   outputs:
-      - stderr
+  # Logging format ('console', 'json'). Default is 'console'.
+  format: console
+  # Enable or disable colors. Default is 'true'. Only applied if format is 'console'.
+  colors: true
+  # Logging outputs. You can have more than one output. Default is only 'stderr'.
+  outputs:
+    - stderr
 
 # CORS configuration
 cors:
-   # Whether or not CORS configuration should be applied. Default is 'true'.
-   enabled: true
-   credentials: true
-   allowed_headers:
-      - Depth
-   allowed_hosts:
-      - http://localhost:8080
-   allowed_methods:
-      - GET
-   exposed_headers:
-      - Content-Length
-      - Content-Range
+  # Whether or not CORS configuration should be applied. Default is 'true'.
+  enabled: true
+  credentials: true
+  allowed_headers:
+    - Depth
+  allowed_hosts:
+    - http://localhost:8080
+  allowed_methods:
+    - GET
+  exposed_headers:
+    - Content-Length
+    - Content-Range
 
 # You define here the list of users.
 # Basic authentication is automatically be configured when users are detected 
 # below, else there will be no authentication.
 # Customize to your needs and don't forget to comment out the users you don't need.
 users:
-   # Example 'admin' user with plaintext password.
-   - username: admin
-     password: admin
+  # Example 'admin' user with plaintext password.
+  - username: admin
+    password: admin
 
-   # Example 'john' user with bcrypt encrypted password, with custom directory.
-   # Tip: you can generate a bcrypt-encrypted password by using the 'webdav bcrypt'
-   # command lint utility, or htpasswd on Linux.
-   - username: john
-     password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
-     directory: /data/john
-   # Example user whose details will be picked up from the environment.
-   - username: "{env}ENV_USERNAME"
-     password: "{env}ENV_PASSWORD"
-   # Example user with advanced control over his permissions
-   - username: basic
-     password: basic
-     permissions: CRUD # Override default permissions.
-     rules:
-        # With this rule, the user CANNOT access {user directory}/some/files.
-        - path: /some/file
-          permissions: none
-        # With this rule, the user CAN create, read, update and delete within
-        # {user directory}/public/access.
-        - path: /public/access/
-          permissions: CRUD
-        # With this rule, the user CAN read and update all files ending with .js.
-        # It uses a regular expression.
-        - regex: "^.+.js$"
-          permissions: RU
-   # Example user for android SeedVault backuping
-   - username: android
-     password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
-     directory: /data/android
-     permissions: CRUD
+  # Example 'john' user with bcrypt encrypted password, with custom directory.
+  # Tip: you can generate a bcrypt-encrypted password by using the 'webdav bcrypt'
+  # command lint utility, or htpasswd on Linux.
+  - username: john
+    password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
+    directory: /data/john
+  # Example user whose details will be picked up from the environment.
+  - username: "{env}ENV_USERNAME"
+    password: "{env}ENV_PASSWORD"
+  # Example user with advanced control over his permissions
+  - username: basic
+    password: basic
+    permissions: CRUD # Override default permissions.
+    rules:
+      # With this rule, the user CANNOT access {user directory}/some/files.
+      - path: /some/file
+        permissions: none
+      # With this rule, the user CAN create, read, update and delete within
+      # {user directory}/public/access.
+      - path: /public/access/
+        permissions: CRUD
+      # With this rule, the user CAN read and update all files ending with .js.
+      # It uses a regular expression.
+      - regex: "^.+.js$"
+        permissions: RU
+  # Example user for android SeedVault backuping
+  - username: android
+    password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
+    directory: /data/android
+    permissions: CRUD
 
 # If you're delegating the authentication to a different service, you can proxy
 # the username using basic authentication, and then disable webdav's password
@@ -194,8 +188,7 @@ users:
 
 ### CORS
 
-The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional 
-as well, but is not set if not defined. Setting `credentials` to `true` will allow you to:
+The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `credentials` to `true` will allow you to:
 
 1. Use `withCredentials = true` in javascript.
 2. Use the `username:password@host` syntax.
@@ -204,9 +197,7 @@ as well, but is not set if not defined. Setting `credentials` to `true` will all
 
 ### Reverse Proxy Service
 
-When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct 
-headers in order to avoid 502 errors.
-Under Traefik, no special configuration is needed.
+When using a reverse proxy implementation, like Caddy, Nginx, or Apache, note that you need to forward the correct headers in order to avoid 502 errors.
 
 #### Nginx Configuration Example
 
@@ -240,7 +231,7 @@ example.com {
     @hasDest header_regexp dest ^https?://[^/]+(.*)$
     header @hasDest Destination {re.dest.1}
 
-     # if running on the same network in docker you can just point to the service name e.g. webdav:6065
+    # if running on the same network in docker you can just point to the service name e.g. webdav:6065
     reverse_proxy 127.0.0.1:6065 {
         header_up X-Real-IP {remote_host}
         header_up REMOTE-HOST {remote_host}
@@ -271,8 +262,7 @@ WantedBy=multi-user.target
 
 ### Fail2Ban Setup
 
-To add security against brute-force attacks in your WebDAV server, you can configure Fail2Ban to ban IP addresses after
-a set number of failed login attempts.
+To add security against brute-force attacks in your WebDAV server, you can configure Fail2Ban to ban IP addresses after a set number of failed login attempts.
 
 #### Filter Configuration
 
@@ -310,8 +300,7 @@ ignoreself = false
 - Replace `[your_port]` with the port your WebDAV server is running on.
 - Replace `[your_log_path]` with the path to your WebDAV log file.
 
-If you use it with Docker and `--log-driver journald`, replace `logpath` with 
-`journalmatch = CONTAINER_NAME=[your_container_name]`
+If you use it with Docker and `--log-driver journald`, replace `logpath` with `journalmatch = CONTAINER_NAME=[your_container_name]`
 
 #### Final Steps
 
