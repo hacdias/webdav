@@ -128,18 +128,36 @@ log:
 # CORS configuration
 cors:
   # Whether or not CORS configuration should be applied. Default is 'false'.
-  # This is an example of how you can enable CORS.
   enabled: true
   credentials: true
-  allowed_headers:
-    - Depth
+  # The following are the default CORS settings when it is enabled.
   allowed_hosts:
     - *
+  allowed_headers:
+    - Authorization
+    - Content-Type
+    - Depth
+    - Destination
+    - If
+    - Lock-Token
+    - Overwrite
+    - TimeOut
+    - Translate
   allowed_methods:
+    - COPY
+    - DELETE
     - GET
-  exposed_headers:
-    - Content-Length
-    - Content-Range
+    - HEAD
+    - LOCK
+    - UNLOCK
+    - MKCOL
+    - MOVE
+    - OPTIONS
+    - POST
+    - PROPFIND
+    - PROPPATCH
+    - PUT
+  exposed_headers: []
 
 # You define here the list of users.
 # Basic authentication is automatically be configured when users are detected 

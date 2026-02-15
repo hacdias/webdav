@@ -86,9 +86,9 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Log.Format", "console")
 	v.SetDefault("Log.Outputs", []string{"stderr"})
 	v.SetDefault("Log.Colors", true)
-	v.SetDefault("CORS.Allowed_Headers", []string{"*"})
 	v.SetDefault("CORS.Allowed_Hosts", []string{"*"})
-	v.SetDefault("CORS.Allowed_Methods", []string{"*"})
+	v.SetDefault("CORS.Allowed_Headers", []string{"Authorization", "Content-Type", "Depth", "Destination", "If", "Lock-Token", "Overwrite"})
+	v.SetDefault("CORS.Allowed_Methods", []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"})
 
 	// Read and unmarshal configuration
 	err := v.ReadInConfig()
