@@ -127,13 +127,14 @@ log:
 
 # CORS configuration
 cors:
-  # Whether or not CORS configuration should be applied. Default is 'true'.
+  # Whether or not CORS configuration should be applied. Default is 'false'.
+  # This is an example of how you can enable CORS.
   enabled: true
   credentials: true
   allowed_headers:
     - Depth
   allowed_hosts:
-    - http://localhost:8080
+    - *
   allowed_methods:
     - GET
   exposed_headers:
