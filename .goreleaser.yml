@@ -38,9 +38,11 @@ builds:
       - goos: openbsd
         goarch: arm
         goarm: 6
+      # Broken as of Go 1.24, deprecated as of Go 1.26
       - goos: freebsd
         goarch: arm
-        goarm: 6
+      - goos: windows
+        goarch: arm
 
 archives:
   - name_template: "{{.Os}}-{{.Arch}}{{if .Arm}}v{{.Arm}}{{end}}-{{ .ProjectName }}"
