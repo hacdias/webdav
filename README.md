@@ -38,26 +38,23 @@ docker pull hacdias/webdav:latest
 
 For usage information regarding the CLI, run `webdav --help`.
 
-### Docker
+### Container
 
-To use with Docker, you need to provide a configuration file and mount the data directories. For example, let's take the following configuration file that simply sets the port to `6060` and the directory to `/data`.
+To run the container, you can refer to the `compose.yml` file which provides a minimal setup. Additionally, you also need to create a configuration file, as [explained below](#configuration).
 
-```yaml
-port: 6060
-directory: /data
-```
-
-You can now run with the following Docker command, where you mount the configuration file inside the container, and the data directory too, as well as forwarding the port 6060. You will need to change this to match your own configuration.
+The equivalent Docker command to the aforementioned compose file would be as follows:
 
 ```bash
 docker run \
-  -p 6060:6060 \
-  -v $(pwd)/config.yml:/config.yml:ro \
-  -v $(pwd)/data:/data \
+  -p 6065:6065 \
+  -v ./config.yml:/config.yml:ro \
+  -v ./data:/data \
   ghcr.io/hacdias/webdav -c /config.yml
 ```
 
-If you are using [fail2ban](#fail2ban-setup), it would be helpful to add the parameters listed below. They will assist in analyzing the log.
+If you are using [fail2ban](#fail2ban-setup), it would be helpful to add the parameters listed below. They will assist in analyzing 
+the log.
+
 ```bash
 --log-driver journald \
 --name webdav \
@@ -65,7 +62,8 @@ If you are using [fail2ban](#fail2ban-setup), it would be helpful to add the par
 
 ## Configuration
 
-The configuration can be provided as a YAML, JSON or TOML file. Below is an example of a YAML configuration file with all the options available, as well as what they mean.
+The configuration can be provided as a YAML, JSON or TOML file. Below is an example of a YAML configuration file with 
+all the options available, as well as what they mean.
 
 ```yaml
 address: 0.0.0.0
@@ -92,8 +90,9 @@ behindProxy: false
 
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'directory' defined.
-# Default is '.' (current directory).
-directory: .
+# By default it points to the working directory. In the case of the compose file above,
+# that is /data.
+directory: /data
 
 # The default permissions for users. This is a case insensitive option. Possible
 # permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
@@ -124,48 +123,46 @@ log:
   colors: true
   # Logging outputs. You can have more than one output. Default is only 'stderr'.
   outputs:
-  - stderr
+    - stderr
 
 # CORS configuration
 cors:
   # Whether or not CORS configuration should be applied. Default is 'false'.
+  # This is an example of how you can enable CORS.
   enabled: true
   credentials: true
   allowed_headers:
     - Depth
   allowed_hosts:
-    - http://localhost:8080
+    - *
   allowed_methods:
     - GET
   exposed_headers:
     - Content-Length
     - Content-Range
 
-# The list of users. If the list is empty, then there will be no authentication.
-# Otherwise, basic authentication will automatically be configured.
-#
-# If you're delegating the authentication to a different service, you can proxy
-# the username using basic authentication, and then disable webdav's password
-# check using the option:
-#
-# noPassword: true
+# You define here the list of users.
+# Basic authentication is automatically be configured when users are detected 
+# below, else there will be no authentication.
+# Customize to your needs and don't forget to comment out the users you don't need.
 users:
   # Example 'admin' user with plaintext password.
   - username: admin
     password: admin
+
   # Example 'john' user with bcrypt encrypted password, with custom directory.
-  # You can generate a bcrypt-encrypted password by using the 'webdav bcrypt'
-  # command lint utility.
+  # Tip: you can generate a bcrypt-encrypted password by using the 'webdav bcrypt'
+  # command lint utility, or htpasswd on Linux.
   - username: john
     password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
-    directory: /another/path
+    directory: /data/john
   # Example user whose details will be picked up from the environment.
   - username: "{env}ENV_USERNAME"
     password: "{env}ENV_PASSWORD"
+  # Example user with advanced control over his permissions
   - username: basic
     password: basic
-    # Override default permissions.
-    permissions: CRUD
+    permissions: CRUD # Override default permissions.
     rules:
       # With this rule, the user CANNOT access {user directory}/some/files.
       - path: /some/file
@@ -178,6 +175,16 @@ users:
       # It uses a regular expression.
       - regex: "^.+.js$"
         permissions: RU
+  # Example user for android SeedVault backuping
+  - username: android
+    password: "{bcrypt}$2y$10$zEP6oofmXFeHaeMfBNLnP.DO8m.H.Mwhd24/TOX2MWLxAExXi4qgi"
+    directory: /data/android
+    permissions: CRUD
+
+# If you're delegating the authentication to a different service, you can proxy
+# the username using basic authentication, and then disable webdav's password
+# check using the option:
+# noPassword: true
 ```
 
 ### CORS
@@ -225,7 +232,8 @@ example.com {
     @hasDest header_regexp dest ^https?://[^/]+(.*)$
     header @hasDest Destination {re.dest.1}
 
-    reverse_proxy 127.0.0.1:6065 { # if running on the same network in docker you can just point to the service name e.g. webdav:6065
+    # if running on the same network in docker you can just point to the service name e.g. webdav:6065
+    reverse_proxy 127.0.0.1:6065 {
         header_up X-Real-IP {remote_host}
         header_up REMOTE-HOST {remote_host}
     }
