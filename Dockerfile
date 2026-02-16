@@ -13,8 +13,6 @@ RUN go build -o main -trimpath -ldflags="-s -w -X 'github.com/hacdias/webdav/v5/
 
 FROM scratch
 
-WORKDIR /data
-
 COPY --from=build /webdav/main /bin/webdav
 
 EXPOSE 6065

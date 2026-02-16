@@ -12,4 +12,3 @@ services:
     volumes:
       - ./data:/data
       - ./config.yml:/config.yml:ro
-    command: ['-c', '/config.yml']
