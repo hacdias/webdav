@@ -290,6 +290,12 @@ users:
 
 	err = client.Write("/c/b.txt", []byte("new"), 0666)
 	require.ErrorContains(t, err, "403")
+
+	err = client.MkdirAll("/d/foo/bar", 0666)
+	require.NoError(t, err)
+
+	err = client.Write("/d/foo/bar/test.txt", []byte("test"), 0666)
+	require.NoError(t, err)
 }
 
 func TestServerRulesAdditive(t *testing.T) {
