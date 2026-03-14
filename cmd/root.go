@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -80,6 +81,8 @@ set WD_CERT.`,
 			return err
 		}
 
+		server := &http.Server{Handler: handler}
+
 		// Trap exiting signals
 		quit := make(chan os.Signal, 1)
 
@@ -88,9 +91,9 @@ set WD_CERT.`,
 
 			var err error
 			if cfg.TLS {
-				err = http.ServeTLS(listener, handler, cfg.Cert, cfg.Key)
+				err = server.ServeTLS(listener, cfg.Cert, cfg.Key)
 			} else {
-				err = http.Serve(listener, handler)
+				err = server.Serve(listener)
 			}
 
 			if err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -104,7 +107,7 @@ set WD_CERT.`,
 		signal := <-quit
 
 		zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
-		_ = listener.Close()
+		_ = server.Shutdown(context.Background())
 
 		return nil
 	},
