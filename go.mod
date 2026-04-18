@@ -13,7 +13,7 @@ require (
 	github.com/studio-b12/gowebdav v0.12.0
 	go.uber.org/zap v1.27.1
 	golang.org/x/crypto v0.50.0
-	golang.org/x/crypto/x509roots/fallback v0.0.0-20260409153322-03ca0dcccbd3
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20260413170323-a8e9237a216b
 	golang.org/x/net v0.53.0
 )
 
