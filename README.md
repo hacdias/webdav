@@ -132,7 +132,7 @@ cors:
   credentials: true
   # The following are the default CORS settings when it is enabled.
   allowed_hosts:
-    - *
+    - '*'
   allowed_headers:
     - Authorization
     - Content-Type
