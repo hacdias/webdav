@@ -2,10 +2,13 @@ package lib
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -80,6 +83,94 @@ func TestServerDefaults(t *testing.T) {
 	require.ErrorContains(t, client.Rename("/foo.txt", "/file2.txt", false), "403")
 	require.ErrorContains(t, client.Copy("/foo.txt", "/file2.txt", false), "403")
 	require.ErrorContains(t, client.Write("/foo.txt", []byte("hello world 2"), 0666), "403")
+}
+
+func TestServerPartialUpdateOptions(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt": []byte("hello world"),
+	})
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodOptions, srv.URL+"/foo.txt", nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, resp.Header.Get("DAV"), "sabredav-partialupdate")
+	require.Contains(t, resp.Header.Get("Allow"), "PATCH")
+	require.Equal(t, partialUpdateContentType, resp.Header.Get("Accept-Patch"))
+}
+
+func TestServerPatchPartialUpdate(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt": []byte("hello world"),
+	})
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest("PATCH", srv.URL+"/foo.txt", strings.NewReader("DAV"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", partialUpdateContentType)
+	req.Header.Set("X-Update-Range", "bytes=6-")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "hello DAVld", string(data))
+}
+
+func TestServerPatchPartialUpdateCreatesSparseFile(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, nil)
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest("PATCH", srv.URL+"/new.bin", strings.NewReader("x"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", partialUpdateContentType)
+	req.Header.Set("X-Update-Range", "bytes=3-")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	data, err := os.ReadFile(filepath.Join(dir, "new.bin"))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0, 0, 0, 'x'}, data)
+}
+
+func TestServerPutContentRangePartialUpdate(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt": []byte("hello world"),
+	})
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodPut, srv.URL+"/foo.txt", strings.NewReader("DAV"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Range", "bytes 6-8/*")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "hello DAVld", string(data))
 }
 
 func TestServerListingCharacters(t *testing.T) {
