@@ -94,6 +94,16 @@ behindProxy: false
 # that is /data.
 directory: /data
 
+# Alternatively, replace 'directory' with 'directories' to expose multiple
+# directories as virtual root entries. This option is mutually exclusive with
+# 'directory' in the same scope. Rules should include the virtual mount name,
+# such as /media/public/access/.
+# directories:
+#   - media: /data/media
+#   - /data/archive
+#   - name: backups
+#     path: /data/backups
+
 # The default permissions for users. This is a case insensitive option. Possible
 # permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
 # permissions. For example, to allow to read and create, set "RC". Default is "R".

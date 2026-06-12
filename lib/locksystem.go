@@ -33,3 +33,49 @@ func (l *lockSystem) Create(now time.Time, details webdav.LockDetails) (token st
 	details.Root = filepath.Join(l.directory, details.Root)
 	return l.LockSystem.Create(now, details)
 }
+
+var _ webdav.LockSystem = &multiDirLockSystem{}
+
+type multiDirLockSystem struct {
+	webdav.LockSystem
+	mounts DirectoryMounts
+}
+
+func (l *multiDirLockSystem) Confirm(now time.Time, name0, name1 string, conditions ...webdav.Condition) (release func(), err error) {
+	if name0 != "" {
+		name0, err = l.resolve(name0)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if name1 != "" {
+		name1, err = l.resolve(name1)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return l.LockSystem.Confirm(now, name0, name1, conditions...)
+}
+
+func (l *multiDirLockSystem) Create(now time.Time, details webdav.LockDetails) (token string, err error) {
+	details.Root, err = l.resolve(details.Root)
+	if err != nil {
+		return "", err
+	}
+	return l.LockSystem.Create(now, details)
+}
+
+func (l *multiDirLockSystem) resolve(name string) (string, error) {
+	if cleanName(name) == "/" {
+		return "/", nil
+	}
+
+	mount, rest, err := multiDir{mounts: l.mounts}.resolve(name)
+	if err != nil {
+		return "", err
+	}
+
+	return mount.filePath(rest), nil
+}

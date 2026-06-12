@@ -53,6 +53,17 @@ func NewHandler(c *Config) (http.Handler, error) {
 		users: map[string]*handlerUser{},
 	}
 
+	if c.UserPermissions.useDirectories {
+		h.user.FileSystem = multiDir{
+			mounts:  c.Directories,
+			noSniff: c.NoSniff,
+		}
+		h.user.LockSystem = &multiDirLockSystem{
+			LockSystem: ls,
+			mounts:     c.Directories,
+		}
+	}
+
 	for _, u := range c.Users {
 		h.users[u.Username] = &handlerUser{
 			User: u,
@@ -68,6 +79,17 @@ func NewHandler(c *Config) (http.Handler, error) {
 				},
 				Logger: logFunc,
 			},
+		}
+
+		if u.UserPermissions.useDirectories {
+			h.users[u.Username].FileSystem = multiDir{
+				mounts:  u.Directories,
+				noSniff: c.NoSniff,
+			}
+			h.users[u.Username].LockSystem = &multiDirLockSystem{
+				LockSystem: ls,
+				mounts:     u.Directories,
+			}
 		}
 	}
 

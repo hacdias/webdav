@@ -3,6 +3,7 @@ package lib
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -163,6 +164,182 @@ rules = []
 
 		check(t, cfg)
 	})
+}
+
+func TestConfigDirectories(t *testing.T) {
+	t.Parallel()
+
+	t.Run("Mixed Entries", func(t *testing.T) {
+		t.Parallel()
+
+		dirC := t.TempDir()
+		dirD := t.TempDir()
+		dirE := t.TempDir()
+
+		cfg := writeAndParseConfig(t, `
+directories:
+  - `+dirC+`
+  - d2: `+dirD+`
+  - name: archive
+    path: `+dirE+`
+`, ".yml")
+		require.NoError(t, cfg.Validate())
+
+		require.True(t, cfg.useDirectories)
+		require.Equal(t, filepath.Base(dirC), cfg.Directories[0].Name)
+		require.Equal(t, dirC, cfg.Directories[0].Path)
+		require.Equal(t, "d2", cfg.Directories[1].Name)
+		require.Equal(t, dirD, cfg.Directories[1].Path)
+		require.Equal(t, "archive", cfg.Directories[2].Name)
+		require.Equal(t, dirE, cfg.Directories[2].Path)
+	})
+
+	t.Run("JSON", func(t *testing.T) {
+		t.Parallel()
+
+		dirC := t.TempDir()
+		dirD := t.TempDir()
+		dirE := t.TempDir()
+
+		cfg := writeAndParseConfig(t, `{
+	"directories": [
+		`+strconv.Quote(dirC)+`,
+		{ "d2": `+strconv.Quote(dirD)+` },
+		{ "name": "archive", "path": `+strconv.Quote(dirE)+` }
+	]
+}`, ".json")
+		require.NoError(t, cfg.Validate())
+
+		require.True(t, cfg.useDirectories)
+		require.Equal(t, filepath.Base(dirC), cfg.Directories[0].Name)
+		require.Equal(t, dirC, cfg.Directories[0].Path)
+		require.Equal(t, "d2", cfg.Directories[1].Name)
+		require.Equal(t, dirD, cfg.Directories[1].Path)
+		require.Equal(t, "archive", cfg.Directories[2].Name)
+		require.Equal(t, dirE, cfg.Directories[2].Path)
+	})
+
+	t.Run("TOML", func(t *testing.T) {
+		t.Parallel()
+
+		dirD := t.TempDir()
+		dirE := t.TempDir()
+
+		cfg := writeAndParseConfig(t, `
+[[directories]]
+d2 = `+strconv.Quote(dirD)+`
+
+[[directories]]
+name = "archive"
+path = `+strconv.Quote(dirE)+`
+`, ".toml")
+		require.NoError(t, cfg.Validate())
+
+		require.True(t, cfg.useDirectories)
+		require.Equal(t, "d2", cfg.Directories[0].Name)
+		require.Equal(t, dirD, cfg.Directories[0].Path)
+		require.Equal(t, "archive", cfg.Directories[1].Name)
+		require.Equal(t, dirE, cfg.Directories[1].Path)
+	})
+
+	t.Run("Mutually Exclusive Global Directory Fields", func(t *testing.T) {
+		t.Parallel()
+
+		writeAndParseConfigWithError(t, `
+directory: /tmp
+directories:
+  - /tmp
+`, ".yml", "directory and directories cannot both be defined")
+	})
+
+	t.Run("Mutually Exclusive User Directory Fields", func(t *testing.T) {
+		t.Parallel()
+
+		writeAndParseConfigWithError(t, `
+users:
+  - username: basic
+    password: basic
+    directory: /tmp
+    directories:
+      - /tmp
+`, ".yml", "cannot define both directory and directories")
+	})
+
+	t.Run("Duplicate Mount Names", func(t *testing.T) {
+		t.Parallel()
+
+		parent := t.TempDir()
+		dir := filepath.Join(parent, "dup")
+		require.NoError(t, os.Mkdir(dir, 0775))
+
+		writeAndParseConfigWithError(t, `
+directories:
+  - `+dir+`
+  - dup: /tmp
+`, ".yml", "duplicate mount name")
+	})
+
+	t.Run("Cascade Mode", func(t *testing.T) {
+		t.Parallel()
+
+		global := t.TempDir()
+		single := t.TempDir()
+		userMulti := t.TempDir()
+
+		cfg := writeAndParseConfig(t, `
+directories:
+  - global: `+global+`
+users:
+  - username: inherited
+    password: inherited
+  - username: single
+    password: single
+    directory: `+single+`
+  - username: multi
+    password: multi
+    directories:
+      - owned: `+userMulti+`
+`, ".yml")
+		require.NoError(t, cfg.Validate())
+
+		require.True(t, cfg.useDirectories)
+		require.True(t, cfg.Users[0].useDirectories)
+		require.Equal(t, DirectoryMounts{{Name: "global", Path: global}}, cfg.Users[0].Directories)
+		require.False(t, cfg.Users[1].useDirectories)
+		require.Equal(t, single, cfg.Users[1].Directory)
+		require.True(t, cfg.Users[2].useDirectories)
+		require.Equal(t, DirectoryMounts{{Name: "owned", Path: userMulti}}, cfg.Users[2].Directories)
+	})
+}
+
+func TestConfigDirectoriesEnvOverrides(t *testing.T) {
+	global := t.TempDir()
+	single := t.TempDir()
+	userMulti := t.TempDir()
+
+	t.Setenv("WD_DIRECTORIES", global)
+	t.Setenv("WD_USERS_1_DIRECTORY", single)
+	t.Setenv("WD_USERS_2_DIRECTORIES", userMulti)
+
+	cfg := writeAndParseConfig(t, `
+users:
+  - username: inherited
+    password: inherited
+  - username: single
+    password: single
+  - username: multi
+    password: multi
+`, ".yml")
+	require.NoError(t, cfg.Validate())
+
+	require.True(t, cfg.useDirectories)
+	require.Equal(t, DirectoryMounts{{Name: filepath.Base(global), Path: global}}, cfg.Directories)
+	require.True(t, cfg.Users[0].useDirectories)
+	require.Equal(t, DirectoryMounts{{Name: filepath.Base(global), Path: global}}, cfg.Users[0].Directories)
+	require.False(t, cfg.Users[1].useDirectories)
+	require.Equal(t, single, cfg.Users[1].Directory)
+	require.True(t, cfg.Users[2].useDirectories)
+	require.Equal(t, DirectoryMounts{{Name: filepath.Base(userMulti), Path: userMulti}}, cfg.Users[2].Directories)
 }
 
 func TestConfigKeys(t *testing.T) {

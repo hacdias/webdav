@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/go-viper/mapstructure/v2"
@@ -22,6 +23,8 @@ const (
 	DefaultPort    = 6065
 	DefaultPrefix  = "/"
 )
+
+var errDirectoryConflict = errors.New("directory and directories cannot both be defined")
 
 type Config struct {
 	UserPermissions `mapstructure:",squash"`
@@ -100,6 +103,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 
 	cfg := &Config{}
 	err = v.Unmarshal(cfg, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+		directoryMountsDecodeHook(),
 		mapstructure.StringToTimeDurationHookFunc(),
 		mapstructure.StringToSliceHookFunc(","),
 		mapstructure.TextUnmarshallerHookFunc(),
@@ -108,10 +112,26 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 		return nil, err
 	}
 
+	err = applyDirectoryConfig(v, flags, &cfg.UserPermissions, "directory", "directories", nil)
+	if err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
 	// Cascade user settings
 	for i := range cfg.Users {
-		if !v.IsSet(fmt.Sprintf("Users.%d.Directory", i)) {
+		userDirectoryKey := fmt.Sprintf("Users.%d.Directory", i)
+		userDirectoriesKey := fmt.Sprintf("Users.%d.Directories", i)
+
+		if !v.IsSet(userDirectoryKey) {
 			cfg.Users[i].Directory = cfg.Directory
+		}
+
+		err := applyDirectoryConfig(v, flags, &cfg.Users[i].UserPermissions, userDirectoryKey, userDirectoriesKey, &cfg.UserPermissions)
+		if err != nil {
+			if errors.Is(err, errDirectoryConflict) {
+				return nil, fmt.Errorf("invalid config: user %q cannot define both directory and directories", cfg.Users[i].Username)
+			}
+			return nil, fmt.Errorf("invalid config: user %q: %w", cfg.Users[i].Username, err)
 		}
 
 		if !v.IsSet(fmt.Sprintf("Users.%d.Permissions", i)) {
@@ -143,6 +163,46 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	}
 
 	return cfg, nil
+}
+
+func applyDirectoryConfig(v *viper.Viper, flags *pflag.FlagSet, permissions *UserPermissions, directoryKey, directoriesKey string, inherited *UserPermissions) error {
+	permissions.directoryExplicit = isExplicitlySet(v, flags, directoryKey)
+	permissions.directoriesExplicit = isExplicitlySet(v, flags, directoriesKey)
+	if permissions.directoryExplicit && permissions.directoriesExplicit {
+		return errDirectoryConflict
+	}
+
+	switch {
+	case permissions.directoryExplicit:
+		permissions.Directory = v.GetString(directoryKey)
+		permissions.useDirectories = false
+	case permissions.directoriesExplicit:
+		directories, err := getDirectoryMounts(v, directoriesKey, permissions.Directories)
+		if err != nil {
+			return err
+		}
+		permissions.Directories = directories
+		permissions.useDirectories = true
+	case inherited != nil:
+		permissions.Directories = append(DirectoryMounts{}, inherited.Directories...)
+		permissions.useDirectories = inherited.useDirectories
+	}
+
+	return nil
+}
+
+func isExplicitlySet(v *viper.Viper, flags *pflag.FlagSet, key string) bool {
+	if flags != nil && flags.Changed(key) {
+		return true
+	}
+
+	if v.InConfig(key) {
+		return true
+	}
+
+	envKey := "WD_" + strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
+	value, ok := os.LookupEnv(envKey)
+	return ok && value != ""
 }
 
 func (c *Config) Validate() error {
@@ -186,6 +246,119 @@ func (c *Config) Validate() error {
 	}
 
 	return nil
+}
+
+func directoryMountsDecodeHook() mapstructure.DecodeHookFunc {
+	mountsType := reflect.TypeOf(DirectoryMounts{})
+
+	return func(from reflect.Type, to reflect.Type, data any) (any, error) {
+		if to != mountsType {
+			return data, nil
+		}
+
+		return decodeDirectoryMounts(data)
+	}
+}
+
+func getDirectoryMounts(v *viper.Viper, key string, fallback DirectoryMounts) (DirectoryMounts, error) {
+	value := v.Get(key)
+	if value == nil {
+		return fallback, nil
+	}
+
+	return decodeDirectoryMounts(value)
+}
+
+func decodeDirectoryMounts(data any) (DirectoryMounts, error) {
+	switch value := data.(type) {
+	case nil:
+		return DirectoryMounts{}, nil
+	case DirectoryMounts:
+		return value, nil
+	case []DirectoryMount:
+		return DirectoryMounts(value), nil
+	case string:
+		if value == "" {
+			return DirectoryMounts{}, nil
+		}
+
+		parts := strings.Split(value, ",")
+		mounts := make(DirectoryMounts, 0, len(parts))
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if part == "" {
+				continue
+			}
+			mounts = append(mounts, DirectoryMount{Path: part})
+		}
+		return mounts, nil
+	case []any:
+		mounts := make(DirectoryMounts, 0, len(value))
+		for _, item := range value {
+			mount, err := decodeDirectoryMount(item)
+			if err != nil {
+				return nil, err
+			}
+			mounts = append(mounts, mount)
+		}
+		return mounts, nil
+	case []string:
+		mounts := make(DirectoryMounts, 0, len(value))
+		for _, item := range value {
+			mounts = append(mounts, DirectoryMount{Path: item})
+		}
+		return mounts, nil
+	default:
+		return nil, fmt.Errorf("invalid directories: unsupported value %T", data)
+	}
+}
+
+func decodeDirectoryMount(data any) (DirectoryMount, error) {
+	switch value := data.(type) {
+	case string:
+		return DirectoryMount{Path: value}, nil
+	case map[string]any:
+		return decodeDirectoryMountMap(value)
+	case map[any]any:
+		m := map[string]any{}
+		for key, value := range value {
+			keyString, ok := key.(string)
+			if !ok {
+				return DirectoryMount{}, errors.New("invalid directories: mount keys must be strings")
+			}
+			m[keyString] = value
+		}
+		return decodeDirectoryMountMap(m)
+	default:
+		return DirectoryMount{}, fmt.Errorf("invalid directories: unsupported mount entry %T", data)
+	}
+}
+
+func decodeDirectoryMountMap(data map[string]any) (DirectoryMount, error) {
+	_, hasName := data["name"]
+	_, hasPath := data["path"]
+	if hasName || hasPath {
+		name, nameOK := data["name"].(string)
+		path, pathOK := data["path"].(string)
+		if !nameOK || !pathOK || len(data) != 2 {
+			return DirectoryMount{}, errors.New("invalid directories: explicit mount objects must define name and path")
+		}
+		return DirectoryMount{Name: name, Path: path}, nil
+	}
+
+	if len(data) != 1 {
+		return DirectoryMount{}, errors.New("invalid directories: mapped mount entries must have exactly one key")
+	}
+
+	for name, path := range data {
+		pathString, ok := path.(string)
+		if !ok {
+			return DirectoryMount{}, errors.New("invalid directories: mapped mount paths must be strings")
+		}
+		return DirectoryMount{Name: name, Path: pathString}, nil
+	}
+
+	return DirectoryMount{}, errors.New("invalid directories: empty mount entry")
 }
 
 func (cfg *Config) GetLogger() (*zap.Logger, error) {
