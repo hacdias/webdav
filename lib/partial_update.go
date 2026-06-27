@@ -166,7 +166,7 @@ func (u *handlerUser) handlePartialUpdate(w http.ResponseWriter, r *http.Request
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	if _, err := f.Seek(updateRange.offset, io.SeekStart); err != nil {
 		http.Error(w, err.Error(), http.StatusMethodNotAllowed)

@@ -98,7 +98,7 @@ func TestServerPartialUpdateOptions(t *testing.T) {
 	require.NoError(t, err)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Contains(t, resp.Header.Get("DAV"), "sabredav-partialupdate")
@@ -157,7 +157,7 @@ func TestServerPatchPartialUpdate(t *testing.T) {
 			req.Header.Set("X-Update-Range", tc.updateRange)
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			require.Equal(t, http.StatusNoContent, resp.StatusCode)
 			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
@@ -180,7 +180,7 @@ func TestServerPatchPartialUpdateCreatesSparseFile(t *testing.T) {
 	req.Header.Set("X-Update-Range", "bytes=3-")
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 	data, err := os.ReadFile(filepath.Join(dir, "new.bin"))
@@ -202,7 +202,7 @@ func TestServerPutContentRangePartialUpdate(t *testing.T) {
 	req.Header.Set("Content-Range", "bytes 6-8/*")
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)
 
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -302,7 +302,7 @@ func TestServerPartialUpdateErrors(t *testing.T) {
 			}
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			require.Equal(t, tc.wantStatus, resp.StatusCode)
 			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
@@ -382,7 +382,7 @@ func TestServerPartialUpdateETagPreconditions(t *testing.T) {
 			require.NoError(t, err)
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			resp.Body.Close()
+			_ = resp.Body.Close()
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			etag := resp.Header.Get("ETag")
 			require.NotEmpty(t, etag)
@@ -399,7 +399,7 @@ func TestServerPartialUpdateETagPreconditions(t *testing.T) {
 			req.Header.Set(tc.headerName, tc.headerValue(etag))
 			resp, err = http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			require.Equal(t, tc.wantStatus, resp.StatusCode)
 			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
@@ -452,7 +452,7 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 			req.Header.Set("Depth", tc.depth)
 			resp, err := http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			_, _ = io.Copy(io.Discard, resp.Body)
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 			lockToken := resp.Header.Get("Lock-Token")
@@ -463,7 +463,7 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 			req.Header.Set("X-Update-Range", "bytes=6-8")
 			resp, err = http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			require.Equal(t, 423, resp.StatusCode)
 
 			req, err = http.NewRequest("PATCH", srv.URL+"/foo.txt", strings.NewReader("DAV"))
@@ -473,7 +473,7 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 			req.Header.Set("If", fmt.Sprintf("<%s%s> (%s)", srv.URL, tc.ifPath, lockToken))
 			resp, err = http.DefaultClient.Do(req)
 			require.NoError(t, err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 			require.Equal(t, http.StatusNoContent, resp.StatusCode)
 
 			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
