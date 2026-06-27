@@ -354,6 +354,9 @@ func spoolBoundedBody(body io.Reader, expected int64) (io.Reader, func(), error)
 	return tmp, cleanup, nil
 }
 
+// confirmPartialUpdateLocks mirrors the unexported confirmLocks helper from
+// golang.org/x/net/webdav so that partial updates honor WebDAV locks the same
+// way regular PUT requests do. Keep it in sync if the upstream behavior changes.
 func (u *handlerUser) confirmPartialUpdateLocks(r *http.Request, src string) (release func(), status int, err error) {
 	hdr := r.Header.Get("If")
 	if hdr == "" {
@@ -415,6 +418,10 @@ type partialIfList struct {
 	conditions  []webdav.Condition
 }
 
+// parsePartialIfHeader, parsePartialIfConditions and cutPartialIfToken
+// reimplement the unexported If-header parser from golang.org/x/net/webdav,
+// which is not accessible from outside that package. Keep them in sync with the
+// upstream parseIfHeader if it changes.
 func parsePartialIfHeader(header string) ([]partialIfList, bool) {
 	s := strings.TrimSpace(header)
 	tagged := strings.HasPrefix(s, "<")
