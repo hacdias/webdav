@@ -820,6 +820,129 @@ users:
 	require.ErrorContains(t, err, "403")
 }
 
+func TestServerMultiDirectories(t *testing.T) {
+	t.Parallel()
+
+	dirC := makeTestDirectory(t, map[string][]byte{
+		"foo.txt":              []byte("foo"),
+		"folder/nested.txt":    []byte("nested"),
+		"public/access/ok.txt": []byte("ok"),
+	})
+	dirD := makeTestDirectory(t, map[string][]byte{
+		"bar.txt": []byte("bar"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+permissions: CRUD
+directories:
+  - c: %s
+  - d: %s
+`, dirC, dirD))
+	client := gowebdav.NewClient(srv.URL, "", "")
+
+	files, err := client.ReadDir("/")
+	require.NoError(t, err)
+	require.Len(t, files, 2)
+	require.Equal(t, "c", files[0].Name())
+	require.Equal(t, "d", files[1].Name())
+
+	data, err := client.Read("/c/foo.txt")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("foo"), data)
+
+	data, err = client.Read("/d/bar.txt")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("bar"), data)
+
+	err = client.Copy("/c/foo.txt", "/d/copied.txt", false)
+	require.NoError(t, err)
+	data, err = os.ReadFile(filepath.Join(dirD, "copied.txt"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("foo"), data)
+
+	err = client.Rename("/c/foo.txt", "/d/moved.txt", false)
+	require.NoError(t, err)
+	require.NoFileExists(t, filepath.Join(dirC, "foo.txt"))
+	data, err = os.ReadFile(filepath.Join(dirD, "moved.txt"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("foo"), data)
+
+	err = client.Rename("/d/bar.txt", "/d/renamed.txt", false)
+	require.NoError(t, err)
+	require.NoFileExists(t, filepath.Join(dirD, "bar.txt"))
+	data, err = os.ReadFile(filepath.Join(dirD, "renamed.txt"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("bar"), data)
+
+	err = client.Rename("/c/folder", "/d/folder", false)
+	require.NoError(t, err)
+	require.NoDirExists(t, filepath.Join(dirC, "folder"))
+	data, err = os.ReadFile(filepath.Join(dirD, "folder", "nested.txt"))
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("nested"), data)
+
+	require.ErrorContains(t, client.Remove("/c"), "405")
+	require.Error(t, client.Write("/c", []byte("blocked"), 0666))
+	require.ErrorContains(t, client.Rename("/d", "/c/d", false), "403")
+}
+
+func TestServerMultiDirectoriesRules(t *testing.T) {
+	t.Parallel()
+
+	dirC := makeTestDirectory(t, map[string][]byte{
+		"public/access/ok.txt": []byte("ok"),
+	})
+	dirD := makeTestDirectory(t, map[string][]byte{
+		"public/access/no.txt": []byte("no"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+permissions: none
+directories:
+  - c: %s
+  - d: %s
+rules:
+  - path: /c/public/access/
+    permissions: R
+`, dirC, dirD))
+	client := gowebdav.NewClient(srv.URL, "", "")
+
+	data, err := client.Read("/c/public/access/ok.txt")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("ok"), data)
+
+	_, err = client.Read("/d/public/access/no.txt")
+	require.ErrorContains(t, err, "403")
+
+	_, err = client.Read("/public/access/ok.txt")
+	require.ErrorContains(t, err, "403")
+}
+
+func TestServerMultiDirectoriesPrefix(t *testing.T) {
+	t.Parallel()
+
+	dirC := makeTestDirectory(t, map[string][]byte{
+		"foo.txt": []byte("foo"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+permissions: R
+prefix: /prefix
+directories:
+  - c: %s
+`, dirC))
+	client := gowebdav.NewClient(srv.URL, "", "")
+
+	files, err := client.ReadDir("/prefix")
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	require.Equal(t, "c", files[0].Name())
+
+	data, err := client.Read("/prefix/c/foo.txt")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("foo"), data)
+}
+
 func TestServerPermissions(t *testing.T) {
 	t.Parallel()
 

@@ -44,10 +44,22 @@ const (
 
 type UserPermissions struct {
 	Directory     string
+	Directories   DirectoryMounts
 	Permissions   Permissions
 	Rules         []*Rule
 	RulesBehavior RulesBehavior
+
+	directoryExplicit   bool
+	directoriesExplicit bool
+	useDirectories      bool
 }
+
+type DirectoryMount struct {
+	Name string
+	Path string
+}
+
+type DirectoryMounts []DirectoryMount
 
 // Allowed checks if the user has permission to access a directory/file
 func (p UserPermissions) Allowed(r *request, fileExists func(string) bool) bool {
@@ -94,6 +106,12 @@ func (p *UserPermissions) Validate() error {
 		return fmt.Errorf("invalid permissions: %w", err)
 	}
 
+	if p.useDirectories || len(p.Directories) > 0 {
+		if err := (&p.Directories).Validate(); err != nil {
+			return fmt.Errorf("invalid permissions: %w", err)
+		}
+	}
+
 	for _, r := range p.Rules {
 		if err := r.Validate(); err != nil {
 			return fmt.Errorf("invalid permissions: %w", err)
@@ -108,6 +126,46 @@ func (p *UserPermissions) Validate() error {
 	}
 
 	return nil
+}
+
+func (d *DirectoryMounts) Validate() error {
+	names := map[string]struct{}{}
+
+	for i := range *d {
+		mount := &(*d)[i]
+		if mount.Path == "" {
+			return errors.New("invalid directories: path must be defined")
+		}
+
+		path, err := filepath.Abs(mount.Path)
+		if err != nil {
+			return fmt.Errorf("invalid directories: %w", err)
+		}
+		mount.Path = path
+
+		if mount.Name == "" {
+			mount.Name = filepath.Base(path)
+		}
+
+		if !validDirectoryMountName(mount.Name) {
+			return fmt.Errorf("invalid directories: invalid mount name %q", mount.Name)
+		}
+
+		if _, ok := names[mount.Name]; ok {
+			return fmt.Errorf("invalid directories: duplicate mount name %q", mount.Name)
+		}
+		names[mount.Name] = struct{}{}
+	}
+
+	return nil
+}
+
+func validDirectoryMountName(name string) bool {
+	if name == "" || name == "." || name == ".." {
+		return false
+	}
+
+	return !strings.ContainsAny(name, `/\`)
 }
 
 type Permissions struct {
