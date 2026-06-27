@@ -152,7 +152,7 @@ func (p Permissions) Allowed(r *request, fileExists func(string) bool) bool {
 		return p.Create
 	case "PROPPATCH":
 		return p.Update
-	case "PUT":
+	case "PUT", "PATCH":
 		if fileExists(r.path) {
 			return p.Update
 		} else {

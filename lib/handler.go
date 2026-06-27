@@ -176,6 +176,16 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if r.Method == "OPTIONS" {
+		user.handleOptions(w, r, req.path)
+		return
+	}
+
+	if r.Method == "PATCH" || (r.Method == "PUT" && r.Header.Get("Content-Range") != "") {
+		user.handlePartialUpdate(w, r, req.path)
+		return
+	}
+
 	// Runs the WebDAV.
 	user.ServeHTTP(w, r)
 }

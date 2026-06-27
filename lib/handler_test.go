@@ -2,10 +2,13 @@ package lib
 
 import (
 	"fmt"
+	"io"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -80,6 +83,404 @@ func TestServerDefaults(t *testing.T) {
 	require.ErrorContains(t, client.Rename("/foo.txt", "/file2.txt", false), "403")
 	require.ErrorContains(t, client.Copy("/foo.txt", "/file2.txt", false), "403")
 	require.ErrorContains(t, client.Write("/foo.txt", []byte("hello world 2"), 0666), "403")
+}
+
+func TestServerPartialUpdateOptions(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt": []byte("hello world"),
+	})
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodOptions, srv.URL+"/foo.txt", nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Contains(t, resp.Header.Get("DAV"), "sabredav-partialupdate")
+	require.Contains(t, resp.Header.Get("Allow"), "PATCH")
+	require.Equal(t, partialUpdateContentType, resp.Header.Get("Accept-Patch"))
+}
+
+func TestServerPatchPartialUpdate(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name        string
+		initialData string
+		body        string
+		updateRange string
+		wantData    string
+	}{{
+		name:        "start",
+		initialData: "hello world",
+		body:        "DAV",
+		updateRange: "bytes=6-",
+		wantData:    "hello DAVld",
+	}, {
+		name:        "suffix",
+		initialData: "hello world",
+		body:        "DAV",
+		updateRange: "bytes=-5",
+		wantData:    "hello DAVld",
+	}, {
+		name:        "append",
+		initialData: "hello",
+		body:        " world",
+		updateRange: "append",
+		wantData:    "hello world",
+	}, {
+		name:        "suffix_zero",
+		initialData: "hello",
+		body:        " world",
+		updateRange: "bytes=-0",
+		wantData:    "hello world",
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := makeTestDirectory(t, map[string][]byte{
+				"foo.txt": []byte(tc.initialData),
+			})
+			srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+			defer srv.Close()
+
+			req, err := http.NewRequest("PATCH", srv.URL+"/foo.txt", strings.NewReader(tc.body))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", partialUpdateContentType)
+			req.Header.Set("X-Update-Range", tc.updateRange)
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, http.StatusNoContent, resp.StatusCode)
+			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+			require.NoError(t, err)
+			require.Equal(t, tc.wantData, string(data))
+		})
+	}
+}
+
+func TestServerPatchPartialUpdateCreatesSparseFile(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, nil)
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest("PATCH", srv.URL+"/new.bin", strings.NewReader("x"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", partialUpdateContentType)
+	req.Header.Set("X-Update-Range", "bytes=3-")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+	data, err := os.ReadFile(filepath.Join(dir, "new.bin"))
+	require.NoError(t, err)
+	require.Equal(t, []byte{0, 0, 0, 'x'}, data)
+}
+
+func TestServerPutContentRangePartialUpdate(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt": []byte("hello world"),
+	})
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodPut, srv.URL+"/foo.txt", strings.NewReader("DAV"))
+	require.NoError(t, err)
+	req.Header.Set("Content-Range", "bytes 6-8/*")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, resp.Body)
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "hello DAVld", string(data))
+}
+
+func TestServerPartialUpdateErrors(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name          string
+		method        string
+		body          string
+		contentLength int64
+		path          string
+		headerName    string
+		updateRange   string
+		contentRange  string
+		wantStatus    int
+	}{{
+		name:          "patch_missing_content_length",
+		method:        "PATCH",
+		body:          "DAV",
+		contentLength: -1,
+		updateRange:   "bytes=6-8",
+		wantStatus:    http.StatusLengthRequired,
+	}, {
+		name:        "patch_invalid_range",
+		method:      "PATCH",
+		body:        "DAV",
+		updateRange: "bytes=8-6",
+		wantStatus:  http.StatusRequestedRangeNotSatisfiable,
+	}, {
+		name:        "patch_length_mismatch",
+		method:      "PATCH",
+		body:        "TOOLONG",
+		updateRange: "bytes=6-8",
+		wantStatus:  http.StatusRequestedRangeNotSatisfiable,
+	}, {
+		name:          "put_content_range_length_mismatch",
+		method:        http.MethodPut,
+		body:          "TOOLONG",
+		contentLength: -1,
+		contentRange:  "bytes 6-8/*",
+		wantStatus:    http.StatusRequestedRangeNotSatisfiable,
+	}, {
+		name:        "if_none_match",
+		method:      "PATCH",
+		body:        "DAV",
+		headerName:  "If-None-Match",
+		updateRange: "bytes=0-2",
+		wantStatus:  http.StatusPreconditionFailed,
+	}, {
+		name:        "if_match",
+		method:      "PATCH",
+		path:        "/missing.txt",
+		body:        "DAV",
+		headerName:  "If-Match",
+		updateRange: "bytes=0-2",
+		wantStatus:  http.StatusPreconditionFailed,
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := makeTestDirectory(t, map[string][]byte{
+				"foo.txt": []byte("hello world"),
+			})
+			srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+			defer srv.Close()
+
+			var body io.Reader = strings.NewReader(tc.body)
+			if tc.contentLength < 0 {
+				body = io.NopCloser(strings.NewReader(tc.body))
+			}
+			path := tc.path
+			if path == "" {
+				path = "/foo.txt"
+			}
+			req, err := http.NewRequest(tc.method, srv.URL+path, body)
+			require.NoError(t, err)
+			if tc.contentLength < 0 {
+				req.ContentLength = tc.contentLength
+			}
+			if tc.method == "PATCH" {
+				req.Header.Set("Content-Type", partialUpdateContentType)
+				req.Header.Set("X-Update-Range", tc.updateRange)
+			}
+			if tc.contentRange != "" {
+				req.Header.Set("Content-Range", tc.contentRange)
+			}
+			if tc.headerName != "" {
+				req.Header.Set(tc.headerName, "*")
+			}
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, tc.wantStatus, resp.StatusCode)
+			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+			require.NoError(t, err)
+			require.Equal(t, "hello world", string(data))
+		})
+	}
+}
+
+func TestServerPartialUpdateETagPreconditions(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		name         string
+		method       string
+		headerName   string
+		headerValue  func(string) string
+		contentRange string
+		wantStatus   int
+		wantData     string
+	}{{
+		name:        "if_match_matches",
+		method:      "PATCH",
+		headerName:  "If-Match",
+		headerValue: func(etag string) string { return etag },
+		wantStatus:  http.StatusNoContent,
+		wantData:    "hello DAVld",
+	}, {
+		name:        "if_match_mismatch",
+		method:      "PATCH",
+		headerName:  "If-Match",
+		headerValue: func(string) string { return `"definitely-wrong"` },
+		wantStatus:  http.StatusPreconditionFailed,
+		wantData:    "hello world",
+	}, {
+		name:        "if_match_list_matches",
+		method:      "PATCH",
+		headerName:  "If-Match",
+		headerValue: func(etag string) string { return `"definitely-wrong", ` + etag },
+		wantStatus:  http.StatusNoContent,
+		wantData:    "hello DAVld",
+	}, {
+		name:        "if_none_match_matches",
+		method:      "PATCH",
+		headerName:  "If-None-Match",
+		headerValue: func(etag string) string { return etag },
+		wantStatus:  http.StatusPreconditionFailed,
+		wantData:    "hello world",
+	}, {
+		name:        "if_none_match_mismatch",
+		method:      "PATCH",
+		headerName:  "If-None-Match",
+		headerValue: func(string) string { return `"definitely-wrong"` },
+		wantStatus:  http.StatusNoContent,
+		wantData:    "hello DAVld",
+	}, {
+		name:         "put_content_range_if_match_mismatch",
+		method:       http.MethodPut,
+		headerName:   "If-Match",
+		headerValue:  func(string) string { return `"definitely-wrong"` },
+		contentRange: "bytes 6-8/*",
+		wantStatus:   http.StatusPreconditionFailed,
+		wantData:     "hello world",
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := makeTestDirectory(t, map[string][]byte{
+				"foo.txt": []byte("hello world"),
+			})
+			srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+			defer srv.Close()
+
+			req, err := http.NewRequest(http.MethodHead, srv.URL+"/foo.txt", nil)
+			require.NoError(t, err)
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			_ = resp.Body.Close()
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			etag := resp.Header.Get("ETag")
+			require.NotEmpty(t, etag)
+
+			req, err = http.NewRequest(tc.method, srv.URL+"/foo.txt", strings.NewReader("DAV"))
+			require.NoError(t, err)
+			if tc.method == "PATCH" {
+				req.Header.Set("Content-Type", partialUpdateContentType)
+				req.Header.Set("X-Update-Range", "bytes=6-8")
+			}
+			if tc.contentRange != "" {
+				req.Header.Set("Content-Range", tc.contentRange)
+			}
+			req.Header.Set(tc.headerName, tc.headerValue(etag))
+			resp, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, tc.wantStatus, resp.StatusCode)
+			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+			require.NoError(t, err)
+			require.Equal(t, tc.wantData, string(data))
+		})
+	}
+}
+
+func TestServerPartialUpdateHonorsLocks(t *testing.T) {
+	t.Parallel()
+
+	const createLockBody = `<?xml version="1.0" encoding="utf-8" ?>
+		<D:lockinfo xmlns:D='DAV:'>
+			<D:lockscope><D:exclusive/></D:lockscope>
+			<D:locktype><D:write/></D:locktype>
+			<D:owner>test</D:owner>
+		</D:lockinfo>`
+
+	testCases := []struct {
+		name     string
+		lockPath string
+		depth    string
+		ifPath   string
+	}{{
+		name:     "file",
+		lockPath: "/foo.txt",
+		depth:    "0",
+		ifPath:   "/foo.txt",
+	}, {
+		name:     "root",
+		lockPath: "/",
+		depth:    "infinity",
+		ifPath:   "/",
+	}}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := makeTestDirectory(t, map[string][]byte{
+				"foo.txt": []byte("hello world"),
+			})
+			srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+			defer srv.Close()
+
+			req, err := http.NewRequest("LOCK", srv.URL+tc.lockPath, strings.NewReader(createLockBody))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/xml")
+			req.Header.Set("Depth", tc.depth)
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+			_, _ = io.Copy(io.Discard, resp.Body)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			lockToken := resp.Header.Get("Lock-Token")
+
+			req, err = http.NewRequest("PATCH", srv.URL+"/foo.txt", strings.NewReader("DAV"))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", partialUpdateContentType)
+			req.Header.Set("X-Update-Range", "bytes=6-8")
+			resp, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+			require.Equal(t, 423, resp.StatusCode)
+
+			req, err = http.NewRequest("PATCH", srv.URL+"/foo.txt", strings.NewReader("DAV"))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", partialUpdateContentType)
+			req.Header.Set("X-Update-Range", "bytes=6-8")
+			req.Header.Set("If", fmt.Sprintf("<%s%s> (%s)", srv.URL, tc.ifPath, lockToken))
+			resp, err = http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+			require.Equal(t, http.StatusNoContent, resp.StatusCode)
+
+			data, err := os.ReadFile(filepath.Join(dir, "foo.txt"))
+			require.NoError(t, err)
+			require.Equal(t, "hello DAVld", string(data))
+		})
+	}
 }
 
 func TestServerListingCharacters(t *testing.T) {

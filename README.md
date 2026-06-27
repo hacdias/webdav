@@ -60,6 +60,19 @@ the log.
 --name webdav \
 ```
 
+### Partial updates
+
+This server supports partial file updates compatible with SabreDAV's `PATCH` extension. This is not an official WebDAV specification. Requests must use the `application/x-sabredav-partialupdate` content type, include `Content-Length`, and provide the target range in `X-Update-Range`.
+
+Supported `X-Update-Range` values are:
+
+- `bytes=start-end`
+- `bytes=start-`
+- `bytes=-N`
+- `append`
+
+For clients that use it, the server also supports partial `PUT` requests with `Content-Range`, for example `Content-Range: bytes 6-8/*`. This is an extra compatibility path and should be treated as a client/server agreement.
+
 ## Configuration
 
 The configuration can be provided as a YAML, JSON or TOML file. Below is an example of a YAML configuration file with 
@@ -136,6 +149,7 @@ cors:
   allowed_headers:
     - Authorization
     - Content-Type
+    - Content-Range
     - Depth
     - Destination
     - If
@@ -143,6 +157,7 @@ cors:
     - Overwrite
     - TimeOut
     - Translate
+    - X-Update-Range
   allowed_methods:
     - COPY
     - DELETE
@@ -153,6 +168,7 @@ cors:
     - MKCOL
     - MOVE
     - OPTIONS
+    - PATCH
     - POST
     - PROPFIND
     - PROPPATCH

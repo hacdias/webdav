@@ -52,8 +52,8 @@ func TestConfigDefaults(t *testing.T) {
 	require.Equal(t, dir, cfg.Directory)
 
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
-	require.EqualValues(t, []string{"Authorization", "Content-Type", "Depth", "Destination", "If", "Lock-Token", "Overwrite"}, cfg.CORS.AllowedHeaders)
-	require.EqualValues(t, []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"}, cfg.CORS.AllowedMethods)
+	require.EqualValues(t, []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"}, cfg.CORS.AllowedHeaders)
+	require.EqualValues(t, []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"}, cfg.CORS.AllowedMethods)
 }
 
 func TestConfigCascade(t *testing.T) {
