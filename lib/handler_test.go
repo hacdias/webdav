@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -486,13 +487,21 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 func TestServerListingCharacters(t *testing.T) {
 	t.Parallel()
 
-	dir := makeTestDirectory(t, map[string][]byte{
+	contents := map[string][]byte{
 		"富/foo.txt": []byte("foo"),
 		"你好.txt":    []byte("bar"),
-		"z*.txt":    []byte("zbar"),
 		"foo.txt":   []byte("foo"),
 		"🌹.txt":     []byte("foo"),
-	})
+	}
+	expectedNames := []string{"foo.txt", "你好.txt", "富", "🌹.txt"}
+	if runtime.GOOS != "windows" {
+		// Asterisks are invalid in Windows filenames.
+		contents["z*.txt"] = []byte("zbar")
+		expectedNames = append(expectedNames, "z*.txt")
+	}
+	sort.Strings(expectedNames)
+
+	dir := makeTestDirectory(t, contents)
 
 	srv := makeTestServer(t, "directory: "+dir)
 	client := gowebdav.NewClient(srv.URL, "", "")
@@ -500,28 +509,21 @@ func TestServerListingCharacters(t *testing.T) {
 	// By default, reading permissions.
 	files, err := client.ReadDir("/")
 	require.NoError(t, err)
-	require.Len(t, files, 5)
+	require.Len(t, files, len(expectedNames))
 
-	names := []string{
-		files[0].Name(),
-		files[1].Name(),
-		files[2].Name(),
-		files[3].Name(),
-		files[4].Name(),
+	names := make([]string, len(files))
+	for i, file := range files {
+		names[i] = file.Name()
 	}
 	sort.Strings(names)
 
-	require.Equal(t, []string{
-		"foo.txt",
-		"z*.txt",
-		"你好.txt",
-		"富",
-		"🌹.txt",
-	}, names)
+	require.Equal(t, expectedNames, names)
 
-	data, err := client.Read("/z*.txt")
-	require.NoError(t, err)
-	require.EqualValues(t, []byte("zbar"), data)
+	if runtime.GOOS != "windows" {
+		data, err := client.Read("/z*.txt")
+		require.NoError(t, err)
+		require.EqualValues(t, []byte("zbar"), data)
+	}
 }
 
 func TestServerAuthentication(t *testing.T) {

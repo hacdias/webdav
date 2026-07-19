@@ -60,12 +60,19 @@ func TestConfigDefaults(t *testing.T) {
 func TestConfigCascade(t *testing.T) {
 	t.Parallel()
 
+	// Directories are resolved to absolute paths, which differ by platform
+	// (for example "/" becomes the current drive root on Windows).
+	rootDirectory, err := filepath.Abs("/")
+	require.NoError(t, err)
+	basicDirectory, err := filepath.Abs("/basic")
+	require.NoError(t, err)
+
 	check := func(t *testing.T, cfg *Config) {
 		require.True(t, cfg.Permissions.Read)
 		require.True(t, cfg.Permissions.Create)
 		require.False(t, cfg.Permissions.Delete)
 		require.False(t, cfg.Permissions.Update)
-		require.Equal(t, "/", cfg.Directory)
+		require.Equal(t, rootDirectory, cfg.Directory)
 		require.Len(t, cfg.Rules, 1)
 
 		require.Len(t, cfg.Users, 2)
@@ -73,14 +80,14 @@ func TestConfigCascade(t *testing.T) {
 		require.True(t, cfg.Users[0].Permissions.Create)
 		require.False(t, cfg.Users[0].Permissions.Delete)
 		require.False(t, cfg.Users[0].Permissions.Update)
-		require.Equal(t, "/", cfg.Users[0].Directory)
+		require.Equal(t, rootDirectory, cfg.Users[0].Directory)
 		require.Len(t, cfg.Users[0].Rules, 1)
 
 		require.True(t, cfg.Users[1].Permissions.Read)
 		require.False(t, cfg.Users[1].Permissions.Create)
 		require.False(t, cfg.Users[1].Permissions.Delete)
 		require.False(t, cfg.Users[1].Permissions.Update)
-		require.Equal(t, "/basic", cfg.Users[1].Directory)
+		require.Equal(t, basicDirectory, cfg.Users[1].Directory)
 		require.Len(t, cfg.Users[1].Rules, 0)
 	}
 
@@ -485,8 +492,11 @@ func TestConfigEnv(t *testing.T) {
 	cfg, err := ParseConfig("", nil)
 	require.NoError(t, err)
 
+	expectedDirectory, err := filepath.Abs("/test")
+	require.NoError(t, err)
+
 	assert.Equal(t, 1234, cfg.Port)
-	assert.Equal(t, "/test", cfg.Directory)
+	assert.Equal(t, expectedDirectory, cfg.Directory)
 	assert.Equal(t, true, cfg.Debug)
 	require.True(t, cfg.Permissions.Read)
 	require.True(t, cfg.Permissions.Create)

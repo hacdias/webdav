@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"path"
 	"path/filepath"
 	"time"
 
@@ -24,7 +25,10 @@ func newLockSystem(ls webdav.LockSystem, directory string) *lockSystem {
 	return &lockSystem{
 		LockSystem: ls,
 		resolve: func(name string) (string, error) {
-			return filepath.Join(directory, name), nil
+			// Lock names share a slash-separated namespace across users, even
+			// on Windows where filepath.Join would emit backslashes and break
+			// descendant-lock matching in the underlying LockSystem.
+			return path.Join(filepath.ToSlash(directory), name), nil
 		},
 	}
 }
@@ -44,7 +48,10 @@ func newMultiDirLockSystem(ls webdav.LockSystem, mounts DirectoryMounts) *lockSy
 				return "", err
 			}
 
-			return mount.filePath(rest), nil
+			// filePath returns an OS-native path for real file operations; the
+			// lock namespace must stay slash-separated so descendant locks match
+			// on Windows.
+			return filepath.ToSlash(mount.filePath(rest)), nil
 		},
 	}
 }
