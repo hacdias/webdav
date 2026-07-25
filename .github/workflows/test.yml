@@ -10,12 +10,21 @@ on:
 
 jobs:
   test:
-    name: test
-    runs-on: ubuntu-latest
+    name: test (${{ matrix.os }})
+    strategy:
+      matrix:
+        os:
+          - ubuntu-latest
+          - windows-latest
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
         with:
           go-version: "1.26.x"
-      - name: Run test with coverage
+      - name: Run test with race detector and coverage
+        if: runner.os != 'Windows'
         run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+      - name: Run test with coverage
+        if: runner.os == 'Windows'
+        run: go test "-coverprofile=coverage.txt" -covermode=atomic ./...
