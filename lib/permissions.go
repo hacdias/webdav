@@ -35,6 +35,17 @@ func (r *Rule) Matches(path string) bool {
 	return strings.HasPrefix(path, r.Path)
 }
 
+// matchesCollection checks if [Rule] names path as the collection it governs,
+// such as a rule for "/c/" and a request for "/c". Regex rules are matched
+// literally and are not considered here.
+func (r *Rule) matchesCollection(path string) bool {
+	if r.Regex != nil || !strings.HasSuffix(r.Path, "/") {
+		return false
+	}
+
+	return path == strings.TrimSuffix(r.Path, "/")
+}
+
 type RulesBehavior string
 
 const (
@@ -67,35 +78,39 @@ func (p UserPermissions) Allowed(r *request, fileExists func(string) bool) bool 
 	// path. As soon as a rule matches and does not allow the operation at the destination,
 	// we fail immediately. If no rule matches, we check the global permissions.
 	if r.method == "COPY" || r.method == "MOVE" {
-		dst := r.destination
-		ruleMatched := false
-
-		for i := len(p.Rules) - 1; i >= 0; i-- {
-			if p.Rules[i].Matches(dst) {
-				ruleMatched = true
-				if !p.Rules[i].Permissions.AllowedDestination(r, fileExists) {
-					return false
-				}
-
-				// Only check the first rule that matches, similarly to the source rules.
-				break
-			}
-		}
-
-		if !ruleMatched && !p.Permissions.AllowedDestination(r, fileExists) {
+		if !p.allowedAt(r.destination, func(perms Permissions) bool {
+			return perms.AllowedDestination(r, fileExists)
+		}) {
 			return false
 		}
 	}
 
-	// Go through rules beginning from the last one, and check the permissions at
-	// the source. The first matched rule returns.
+	return p.allowedAt(r.path, func(perms Permissions) bool {
+		return perms.Allowed(r, fileExists)
+	})
+}
+
+// allowedAt resolves the permissions that govern path and applies check to them.
+func (p UserPermissions) allowedAt(path string, check func(Permissions) bool) bool {
+	// Go through rules beginning from the last one. The first matched rule returns.
 	for i := len(p.Rules) - 1; i >= 0; i-- {
-		if p.Rules[i].Matches(r.path) {
-			return p.Rules[i].Permissions.Allowed(r, fileExists)
+		if p.Rules[i].Matches(path) {
+			return check(p.Rules[i].Permissions)
 		}
 	}
 
-	return p.Permissions.Allowed(r, fileExists)
+	// A rule written with a trailing slash also governs the collection it names,
+	// so that a rule for "/c/" cannot be evaded by asking for "/c". Such a request
+	// acts on an entry of the parent collection, so it needs the permissions that
+	// apply there too. Requiring both means the rule can restrict the collection
+	// without granting access that would otherwise not exist.
+	for i := len(p.Rules) - 1; i >= 0; i-- {
+		if p.Rules[i].matchesCollection(path) {
+			return check(p.Rules[i].Permissions) && check(p.Permissions)
+		}
+	}
+
+	return check(p.Permissions)
 }
 
 func (p *UserPermissions) Validate() error {

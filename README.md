@@ -230,6 +230,14 @@ users:
 # noPassword: true
 ```
 
+### Rules
+
+Rules are matched against the request path after dot segments have been resolved, so `/public/../secret/file` is matched as `/secret/file`. The last rule that matches wins.
+
+A `path` rule is a prefix match. A rule written with a trailing slash also covers the collection it names, so `path: /secret/` applies to a request for `/secret` as well. Such a rule can only restrict that collection: acting on the collection itself also requires the permissions that apply outside the rule, since the operation takes place in the parent collection.
+
+A `regex` rule is matched literally against the path, and gets none of the above handling. In particular `regex: "^/secret/"` does **not** match a request for `/secret` itself. Write `regex: "^/secret(/|$)"` if you want to cover the collection too.
+
 ### CORS
 
 The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `credentials` to `true` will allow you to:

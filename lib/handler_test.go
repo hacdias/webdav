@@ -1012,3 +1012,243 @@ users:
 		require.ErrorContains(t, err, "403")
 	})
 }
+
+func TestServerRulesDotSegments(t *testing.T) {
+	t.Parallel()
+
+	// Sends a request with an unmodified request-target, since a WebDAV client
+	// would normalize the dot segments away before they reach the server.
+	do := func(t *testing.T, method, url string, header map[string]string) int {
+		t.Helper()
+
+		req, err := http.NewRequest(method, url, nil)
+		require.NoError(t, err)
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		return resp.StatusCode
+	}
+
+	makeServer := func(t *testing.T) (*httptest.Server, string) {
+		dir := makeTestDirectory(t, map[string][]byte{
+			"public/pub.txt":  []byte("public"),
+			"secret/flag.txt": []byte("secret"),
+			"secret/keep.txt": []byte("keep"),
+		})
+
+		srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/secret/"
+    permissions: none
+`, dir))
+		t.Cleanup(srv.Close)
+		return srv, dir
+	}
+
+	t.Run("Source Path", func(t *testing.T) {
+		t.Parallel()
+		srv, _ := makeServer(t)
+
+		for _, path := range []string{
+			"/secret/flag.txt",
+			"/public/../secret/flag.txt",
+			"/public/%2e%2e/secret/flag.txt",
+			"/public/../secret/",
+			"/secret/.",
+			"/secret/%2e",
+		} {
+			require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+path, nil), path)
+		}
+
+		require.Equal(t, http.StatusForbidden, do(t, "PUT", srv.URL+"/public/%2e%2e/secret/new.txt", nil))
+		require.Equal(t, http.StatusForbidden, do(t, "DELETE", srv.URL+"/public/%2e%2e/secret/keep.txt", nil))
+
+		// A request that resolves outside a rule must still succeed.
+		require.Equal(t, http.StatusOK, do(t, "GET", srv.URL+"/secret/../public/pub.txt", nil))
+	})
+
+	t.Run("Destination Header", func(t *testing.T) {
+		t.Parallel()
+		srv, _ := makeServer(t)
+
+		for _, destination := range []string{
+			srv.URL + "/public/%2e%2e/secret/moved.txt",
+			srv.URL + "/public/../secret/moved.txt",
+			"/public/%2e%2e/secret/moved.txt",
+		} {
+			code := do(t, "MOVE", srv.URL+"/public/pub.txt", map[string]string{
+				"Destination": destination,
+				"Overwrite":   "T",
+			})
+			require.Equal(t, http.StatusForbidden, code, destination)
+		}
+	})
+
+	t.Run("Regex Rule", func(t *testing.T) {
+		t.Parallel()
+
+		dir := makeTestDirectory(t, map[string][]byte{
+			"public/pub.txt":  []byte("public"),
+			"secret/flag.txt": []byte("secret"),
+		})
+
+		srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - regex: "^/secret/"
+    permissions: none
+`, dir))
+		defer srv.Close()
+
+		require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/secret/flag.txt", nil))
+		require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/public/%2e%2e/secret/flag.txt", nil))
+	})
+
+	t.Run("Directory Mounts", func(t *testing.T) {
+		t.Parallel()
+
+		alpha := makeTestDirectory(t, map[string][]byte{"a.txt": []byte("a")})
+		beta := makeTestDirectory(t, map[string][]byte{"b.txt": []byte("b")})
+
+		srv := makeTestServer(t, fmt.Sprintf(`
+permissions: CRUD
+directories:
+  - name: alpha
+    path: %s
+  - name: beta
+    path: %s
+rules:
+  - path: "/beta/"
+    permissions: none
+`, alpha, beta))
+		defer srv.Close()
+
+		require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/beta/b.txt", nil))
+		require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/alpha/%2e%2e/beta/b.txt", nil))
+		require.Equal(t, http.StatusOK, do(t, "GET", srv.URL+"/alpha/a.txt", nil))
+	})
+
+	t.Run("No Users", func(t *testing.T) {
+		t.Parallel()
+		srv, _ := makeServer(t)
+
+		// Without a users block no authentication runs, so the rule is the only
+		// access control there is.
+		require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/public/%2e%2e/secret/flag.txt", nil))
+	})
+}
+
+func TestServerRulesBareCollection(t *testing.T) {
+	t.Parallel()
+
+	do := func(t *testing.T, method, url string) int {
+		t.Helper()
+
+		req, err := http.NewRequest(method, url, nil)
+		require.NoError(t, err)
+		req.Header.Set("Depth", "1")
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		return resp.StatusCode
+	}
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"c/secret.txt": []byte("secret"),
+		"cd/open.txt":  []byte("open"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/c/"
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	// A rule written "/c/" must also cover the collection named without the
+	// trailing slash, otherwise the denied directory can be listed or deleted.
+	for _, path := range []string{"/c/", "/c", "/c/secret.txt"} {
+		require.Equal(t, http.StatusForbidden, do(t, "PROPFIND", srv.URL+path), path)
+		require.Equal(t, http.StatusForbidden, do(t, "DELETE", srv.URL+path), path)
+	}
+
+	// A sibling whose name merely starts with the same characters is unaffected.
+	require.Equal(t, http.StatusMultiStatus, do(t, "PROPFIND", srv.URL+"/cd"))
+	require.Equal(t, http.StatusOK, do(t, "GET", srv.URL+"/cd/open.txt"))
+
+	// A rule governs the collection it names, but must not grant access to it
+	// that would not otherwise exist: removing "/pub" acts on the root, which
+	// the global permissions still deny.
+	grantDir := makeTestDirectory(t, map[string][]byte{"pub/x.txt": []byte("x")})
+	grantSrv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: none
+rules:
+  - path: "/pub/"
+    permissions: CRUD
+`, grantDir))
+	defer grantSrv.Close()
+
+	require.Equal(t, http.StatusNoContent, do(t, "DELETE", grantSrv.URL+"/pub/x.txt"))
+	require.Equal(t, http.StatusForbidden, do(t, "DELETE", grantSrv.URL+"/pub"))
+	require.Equal(t, http.StatusForbidden, do(t, "PROPFIND", grantSrv.URL+"/pub"))
+}
+
+func TestServerRulesEmptyPrefixDestination(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"public/a.txt": []byte("a"),
+		"public/b.txt": []byte("b"),
+		"secret/x.txt": []byte("secret"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+prefix: ""
+permissions: CRUD
+rules:
+  - path: "/secret/"
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	// RFC 4918 has Destination as an absolute URI, so the host must not end up
+	// in the value the rules are matched against.
+	for name, destination := range map[string]string{
+		"absolute":  srv.URL + "/secret/moved.txt",
+		"bare path": "/secret/moved.txt",
+		"dot":       srv.URL + "/public/%2e%2e/secret/moved.txt",
+	} {
+		req, err := http.NewRequest("MOVE", srv.URL+"/public/a.txt", nil)
+		require.NoError(t, err)
+		req.Header.Set("Destination", destination)
+		req.Header.Set("Overwrite", "T")
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, http.StatusForbidden, resp.StatusCode, name)
+	}
+
+	// A destination outside any rule must still work.
+	req, err := http.NewRequest("MOVE", srv.URL+"/public/b.txt", nil)
+	require.NoError(t, err)
+	req.Header.Set("Destination", srv.URL+"/public/moved.txt")
+	req.Header.Set("Overwrite", "T")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+}

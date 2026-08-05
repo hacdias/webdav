@@ -3,7 +3,6 @@ package lib
 import (
 	"net/http"
 	"os"
-	"strings"
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
@@ -167,8 +166,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 		collection resources.
 	//
 	// GET (or HEAD), when applied to collection, will return the same as PROPFIND method.
-	if (r.Method == "GET" || r.Method == "HEAD") && strings.HasPrefix(r.URL.Path, user.Prefix) {
-		info, err := user.FileSystem.Stat(r.Context(), strings.TrimPrefix(r.URL.Path, user.Prefix))
+	if r.Method == "GET" || r.Method == "HEAD" {
+		info, err := user.FileSystem.Stat(r.Context(), req.path)
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
 
