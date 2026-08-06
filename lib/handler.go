@@ -48,12 +48,13 @@ func NewHandler(c *Config) (http.Handler, error) {
 
 	if c.CORS.Enabled {
 		return cors.New(cors.Options{
-			AllowCredentials:   c.CORS.Credentials,
-			AllowedOrigins:     c.CORS.AllowedHosts,
-			AllowedMethods:     c.CORS.AllowedMethods,
-			AllowedHeaders:     c.CORS.AllowedHeaders,
-			ExposedHeaders:     c.CORS.ExposedHeaders,
-			OptionsPassthrough: false,
+			AllowCredentials:    c.CORS.Credentials,
+			AllowPrivateNetwork: c.CORS.AllowPrivateNetwork,
+			AllowedOrigins:      c.CORS.AllowedHosts,
+			AllowedMethods:      c.CORS.AllowedMethods,
+			AllowedHeaders:      c.CORS.AllowedHeaders,
+			ExposedHeaders:      c.CORS.ExposedHeaders,
+			OptionsPassthrough:  false,
 		}).Handler(h), nil
 	}
 

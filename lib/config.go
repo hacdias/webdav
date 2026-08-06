@@ -383,10 +383,11 @@ type Log struct {
 }
 
 type CORS struct {
-	Enabled        bool
-	Credentials    bool
-	AllowedHeaders []string `mapstructure:"allowed_headers"`
-	AllowedHosts   []string `mapstructure:"allowed_hosts"`
-	AllowedMethods []string `mapstructure:"allowed_methods"`
-	ExposedHeaders []string `mapstructure:"exposed_headers"`
+	Enabled             bool
+	Credentials         bool
+	AllowPrivateNetwork bool     `mapstructure:"allow_private_network"`
+	AllowedHeaders      []string `mapstructure:"allowed_headers"`
+	AllowedHosts        []string `mapstructure:"allowed_hosts"`
+	AllowedMethods      []string `mapstructure:"allowed_methods"`
+	ExposedHeaders      []string `mapstructure:"exposed_headers"`
 }
