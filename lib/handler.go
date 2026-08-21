@@ -180,9 +180,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 					r.Context(),
 					user.FileSystem,
 					req.path,
-					h.browserListing.Header,
-					h.browserListing.Footer,
 					sorting,
+					h.browserListing,
 				)
 				if err != nil {
 					lZap.Error("failed to render directory listing", zap.Error(err))

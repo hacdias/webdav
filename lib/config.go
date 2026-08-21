@@ -94,6 +94,8 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("CORS.Allowed_Headers", []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"})
 	v.SetDefault("CORS.Allowed_Methods", []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"})
 	v.SetDefault("BrowserListing.Enabled", true)
+	v.SetDefault("BrowserListing.HideParentDir", false)
+	v.SetDefault("BrowserListing.Show_Path", true)
 
 	// Read and unmarshal configuration
 	err := v.ReadInConfig()
@@ -399,11 +401,13 @@ type CORS struct {
 }
 
 type BrowserListing struct {
-	Enabled    bool
-	Header     string
-	HeaderFile string `mapstructure:"header_file"`
-	Footer     string
-	FooterFile string `mapstructure:"footer_file"`
+	Enabled       bool
+	HideParentDir bool `mapstructure:"hide_parent_dir"`
+	ShowPath      bool `mapstructure:"show_path"`
+	Header        string
+	HeaderFile    string `mapstructure:"header_file"`
+	Footer        string
+	FooterFile    string `mapstructure:"footer_file"`
 }
 
 func (bl *BrowserListing) Load() error {

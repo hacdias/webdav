@@ -1286,7 +1286,40 @@ browserListing:
 	require.Contains(t, bodyStr, "file1.txt")
 	require.Contains(t, bodyStr, "file2.txt")
 	require.Contains(t, bodyStr, "subdir")
-	require.Contains(t, bodyStr, "<table>")
+	require.Contains(t, bodyStr, `<table id="list">`)
+}
+
+func TestServerBrowserListingHideParentDir(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"subdir/file.txt": []byte("content"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: true
+  hide_parent_dir: true
+`, dir))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/subdir/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.NotContains(t, bodyStr, `href="../"`)
+	require.Contains(t, bodyStr, `td colspan="2" class="link"`)
+	require.Contains(t, bodyStr, `td class="size"`)
+	require.Contains(t, bodyStr, `td class="date"`)
 }
 
 func TestServerBrowserListingDisabled(t *testing.T) {
@@ -1386,7 +1419,7 @@ browserListing:
 `, dir))
 	defer srv.Close()
 
-	resp, err := http.Get(srv.URL + "/?sort=size&order=desc")
+	resp, err := http.Get(srv.URL + "/?C=S&O=D")
 	require.NoError(t, err)
 	defer resp.Body.Close()
 

@@ -33,15 +33,15 @@ type ListingSortOptions struct {
 	Order ListingSortOrder
 }
 
+// ParseListingSortQuery reads the fancyindex-style ?C=<column>&O=<order> query params.
 func ParseListingSortQuery(query url.Values) ListingSortOptions {
-	field := ListingSortField(strings.ToLower(query.Get("sort")))
-	order := ListingSortOrder(strings.ToLower(query.Get("order")))
-
-	if !isValidListingSortField(field) {
+	field, ok := listingSortFieldFromCode(query.Get("C"))
+	if !ok {
 		field = listingSortByName
 	}
 
-	if !isValidListingSortOrder(order) {
+	order, ok := listingSortOrderFromCode(query.Get("O"))
+	if !ok {
 		order = listingSortAsc
 	}
 
@@ -58,7 +58,7 @@ type FileEntry struct {
 	ModTime time.Time
 }
 
-func RenderDirectoryListing(ctx context.Context, fs webdav.FileSystem, dirPath, header, footer string, sorting ListingSortOptions) (string, error) {
+func RenderDirectoryListing(ctx context.Context, fs webdav.FileSystem, dirPath string, sorting ListingSortOptions, listing BrowserListing) (string, error) {
 	file, err := fs.OpenFile(ctx, dirPath, os.O_RDONLY, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to open directory: %w", err)
@@ -98,15 +98,16 @@ body { font-family: sans-serif; margin: 1rem; }
 table { border-collapse: collapse; width: 100%; }
 th, td { padding: 0.2rem 0.6rem; text-align: left; white-space: nowrap; }
 th.size, td.size { text-align: right; }
-td.name { width: 100%; }
+td.link { width: 100%; }
 </style>
 </head>
 <body>`)
 
-	if header != "" {
-		buf.WriteString(header)
-	} else {
-		// show the default header if no custom header is provided
+	if listing.Header != "" {
+		buf.WriteString(listing.Header)
+	}
+
+	if listing.ShowPath {
 		buf.WriteString(`<h1>Index of `)
 		buf.WriteString(html.EscapeString(collectionPath))
 		buf.WriteString(`</h1>`)
@@ -116,30 +117,30 @@ td.name { width: 100%; }
 <table id="list">
 <thead>
 <tr>
-<th><a href="`)
+<th colspan="2"><a href="`)
 	buf.WriteString(listingSortLink(listingSortByName, sorting))
 	buf.WriteString(`">`)
 	buf.WriteString(listingSortLabel("Name", listingSortByName, sorting))
-	buf.WriteString(`</a></th>
-<th><a href="`)
-	buf.WriteString(listingSortLink(listingSortByDate, sorting))
-	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("Last modified", listingSortByDate, sorting))
 	buf.WriteString(`</a></th>
 <th class="size"><a href="`)
 	buf.WriteString(listingSortLink(listingSortBySize, sorting))
 	buf.WriteString(`">`)
 	buf.WriteString(listingSortLabel("Size", listingSortBySize, sorting))
 	buf.WriteString(`</a></th>
+<th class="date"><a href="`)
+	buf.WriteString(listingSortLink(listingSortByDate, sorting))
+	buf.WriteString(`">`)
+	buf.WriteString(listingSortLabel("Last modified", listingSortByDate, sorting))
+	buf.WriteString(`</a></th>
 </tr>
 </thead>
 <tbody>`)
 
-	if dirPath != "/" {
+	if dirPath != "/" && !listing.HideParentDir {
 		buf.WriteString(`<tr>
-<td class="name"><a href="../">../</a></td>
-<td>-</td>
+<td colspan="2" class="link"><a href="../">../</a></td>
 <td class="size">-</td>
+<td class="date">-</td>
 </tr>
 `)
 	}
@@ -156,18 +157,18 @@ td.name { width: 100%; }
 
 		modTime := entry.ModTime.Format("02-Jan-2006 15:04")
 		fmt.Fprintf(&buf, `<tr>
-<td class="name"><a href="%s">%s</a></td>
-<td>%s</td>
+<td colspan="2" class="link"><a href="%s">%s</a></td>
 <td class="size">%s</td>
+<td class="date">%s</td>
 </tr>
-`, href, name, modTime, size)
+`, href, name, size, modTime)
 	}
 
 	buf.WriteString(`</tbody>
 </table>`)
 
-	if footer != "" {
-		buf.WriteString(footer)
+	if listing.Footer != "" {
+		buf.WriteString(listing.Footer)
 	}
 
 	buf.WriteString(`</body>
@@ -219,7 +220,7 @@ func listingSortLink(field ListingSortField, current ListingSortOptions) string 
 		}
 	}
 
-	return fmt.Sprintf("?sort=%s&order=%s", field, order)
+	return fmt.Sprintf("?C=%s&O=%s", listingSortFieldToCode(field), listingSortOrderToCode(order))
 }
 
 func listingSortLabel(label string, field ListingSortField, current ListingSortOptions) string {
@@ -250,21 +251,47 @@ func fileEntryLink(entry FileEntry) string {
 	return link
 }
 
-func isValidListingSortField(value ListingSortField) bool {
-	switch value {
-	case listingSortByName, listingSortByDate, listingSortBySize:
-		return true
+// listingSortFieldToCode maps a field to fancyindex's column code (N=name, M=modified, S=size).
+func listingSortFieldToCode(field ListingSortField) string {
+	switch field {
+	case listingSortByDate:
+		return "M"
+	case listingSortBySize:
+		return "S"
 	default:
-		return false
+		return "N"
 	}
 }
 
-func isValidListingSortOrder(value ListingSortOrder) bool {
-	switch value {
-	case listingSortAsc, listingSortDesc:
-		return true
+func listingSortFieldFromCode(code string) (ListingSortField, bool) {
+	switch strings.ToUpper(code) {
+	case "N":
+		return listingSortByName, true
+	case "M":
+		return listingSortByDate, true
+	case "S":
+		return listingSortBySize, true
 	default:
-		return false
+		return "", false
+	}
+}
+
+// listingSortOrderToCode maps an order to fancyindex's code (A=ascending, D=descending).
+func listingSortOrderToCode(order ListingSortOrder) string {
+	if order == listingSortDesc {
+		return "D"
+	}
+	return "A"
+}
+
+func listingSortOrderFromCode(code string) (ListingSortOrder, bool) {
+	switch strings.ToUpper(code) {
+	case "A":
+		return listingSortAsc, true
+	case "D":
+		return listingSortDesc, true
+	default:
+		return "", false
 	}
 }
 

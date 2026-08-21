@@ -191,6 +191,13 @@ browserListing:
   enabled: true
   # Directory listing HTML is intentionally minimal (nginx autoindex/fancyindex
   # style) so that custom header/footer snippets can define most of the look.
+  # Generated listing rows use link, size, and date classes (nginx 
+  # autoindex/fancyindex style).
+  # Hide the parent directory (../) link. Default is 'false'.
+  # hide_parent_dir: false
+  # Whether to show the "Index of <path>" title when no custom header is set.
+  # If false the listing renders with no title. Default is 'true'.
+  # show_path: true
   # Optional header to include at the top of directory listing pages.
   # Can be inline HTML or a file path.
   # header: "<h1>My WebDAV Server</h1>"
@@ -200,9 +207,11 @@ browserListing:
   # footer: "<p>Copyright 2026</p>"
   # footer_file: /etc/webdav/footer.html
   #
-  # Sorting is selected via query parameters on listing pages:
-  #   ?sort=name|date|size&order=asc|desc
-  # Defaults: sort=name, order=asc
+  # Sorting is selected via query parameters on listing pages, matching
+  # fancyindex's convention:
+  #   ?C=N|M|S&O=A|D
+  # C: N=name, M=last modified, S=size. O: A=ascending, D=descending.
+  # Defaults: C=N, O=A
 
 # You define here the list of users.
 # Basic authentication is automatically be configured when users are detected 

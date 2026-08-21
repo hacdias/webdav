@@ -21,14 +21,14 @@ func TestParseListingSortQuery(t *testing.T) {
 	})
 
 	t.Run("valid values", func(t *testing.T) {
-		got := ParseListingSortQuery(url.Values{"sort": {"size"}, "order": {"desc"}})
+		got := ParseListingSortQuery(url.Values{"C": {"S"}, "O": {"D"}})
 		if got.Field != listingSortBySize || got.Order != listingSortDesc {
 			t.Fatalf("unexpected parsed values: %+v", got)
 		}
 	})
 
 	t.Run("invalid values fallback", func(t *testing.T) {
-		got := ParseListingSortQuery(url.Values{"sort": {"invalid"}, "order": {"nope"}})
+		got := ParseListingSortQuery(url.Values{"C": {"invalid"}, "O": {"nope"}})
 		if got.Field != listingSortByName || got.Order != listingSortAsc {
 			t.Fatalf("unexpected fallback values: %+v", got)
 		}
@@ -44,15 +44,14 @@ func TestRenderDirectoryListingBasic(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/",
-		"",
-		"",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
 	}
 
-	if !strings.Contains(html, "<!DOCTYPE html>") || !strings.Contains(html, "<table>") {
+	if !strings.Contains(html, "<!DOCTYPE html>") || !strings.Contains(html, `<table id="list">`) {
 		t.Fatal("expected basic html table output")
 	}
 	if !strings.Contains(html, "Index of /") {
@@ -69,9 +68,8 @@ func TestRenderDirectoryListingHeaderFooter(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/",
-		"<h1>HEADER</h1>",
-		"<p>FOOTER</p>",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{Header: "<h1>HEADER</h1>", Footer: "<p>FOOTER</p>", ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
@@ -88,21 +86,20 @@ func TestRenderDirectoryListingSortLinks(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/",
-		"",
-		"",
 		ListingSortOptions{Field: listingSortByDate, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
 	}
 
-	if !strings.Contains(html, "?sort=name&order=asc") {
+	if !strings.Contains(html, "?C=N&O=A") {
 		t.Fatal("expected name sort link")
 	}
-	if !strings.Contains(html, "?sort=date&order=desc") {
+	if !strings.Contains(html, "?C=M&O=D") {
 		t.Fatal("expected toggled date sort link")
 	}
-	if !strings.Contains(html, "?sort=size&order=asc") {
+	if !strings.Contains(html, "?C=S&O=A") {
 		t.Fatal("expected size sort link")
 	}
 }
@@ -117,9 +114,8 @@ func TestRenderDirectoryListingEscapingAndLinks(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/",
-		"",
-		"",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
@@ -144,9 +140,8 @@ func TestRenderDirectoryListingParentDirectory(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/",
-		"",
-		"",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
@@ -159,15 +154,77 @@ func TestRenderDirectoryListingParentDirectory(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/child",
-		"",
-		"",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
 	}
 	if !strings.Contains(childHTML, "href=\"../\"") {
 		t.Fatal("non-root should contain parent link")
+	}
+	if !strings.Contains(childHTML, `<td colspan="2" class="link"><a href="../">../</a></td>`) {
+		t.Fatal("parent link should use fancyindex-style link cell")
+	}
+
+	hiddenChildHTML, err := RenderDirectoryListing(
+		context.Background(),
+		webdav.Dir(tmpDir),
+		"/child",
+		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{HideParentDir: true, ShowPath: true},
+	)
+	if err != nil {
+		t.Fatalf("RenderDirectoryListing failed: %v", err)
+	}
+	if strings.Contains(hiddenChildHTML, "href=\"../\"") {
+		t.Fatal("non-root should not contain parent link when hideParentDir is true")
+	}
+}
+
+func TestRenderDirectoryListingShowPath(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	shown, err := RenderDirectoryListing(
+		context.Background(),
+		webdav.Dir(tmpDir),
+		"/",
+		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
+	)
+	if err != nil {
+		t.Fatalf("RenderDirectoryListing failed: %v", err)
+	}
+	if !strings.Contains(shown, "<h1>Index of") {
+		t.Fatal("expected default title when showPath is true")
+	}
+
+	hidden, err := RenderDirectoryListing(
+		context.Background(),
+		webdav.Dir(tmpDir),
+		"/",
+		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: false},
+	)
+	if err != nil {
+		t.Fatalf("RenderDirectoryListing failed: %v", err)
+	}
+	if strings.Contains(hidden, "<h1>Index of") {
+		t.Fatal("expected no title when showPath is false and no custom header is set")
+	}
+
+	withHeader, err := RenderDirectoryListing(
+		context.Background(),
+		webdav.Dir(tmpDir),
+		"/",
+		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{Header: "<h1>Custom</h1>", ShowPath: false},
+	)
+	if err != nil {
+		t.Fatalf("RenderDirectoryListing failed: %v", err)
+	}
+	if !strings.Contains(withHeader, "<h1>Custom</h1>") {
+		t.Fatal("custom header should still render regardless of showPath")
 	}
 }
 
@@ -181,9 +238,8 @@ func TestRenderDirectoryListingSortByName(t *testing.T) {
 		context.Background(),
 		webdav.Dir(tmpDir),
 		"/",
-		"",
-		"",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
@@ -194,6 +250,44 @@ func TestRenderDirectoryListingSortByName(t *testing.T) {
 	zebra := strings.Index(html, "zebra.txt")
 	if !(apple < banana && banana < zebra) {
 		t.Fatal("expected alphabetical order")
+	}
+}
+
+func TestRenderDirectoryListingFancyindexClasses(t *testing.T) {
+	tmpDir := t.TempDir()
+	_ = os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("content"), 0o644)
+
+	html, err := RenderDirectoryListing(
+		context.Background(),
+		webdav.Dir(tmpDir),
+		"/",
+		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
+		BrowserListing{ShowPath: true},
+	)
+	if err != nil {
+		t.Fatalf("RenderDirectoryListing failed: %v", err)
+	}
+
+	if !strings.Contains(html, `<th colspan="2"><a href="?C=N&O=D">Name ↑</a></th>`) {
+		t.Fatal("expected filename header to span two columns")
+	}
+	if !strings.Contains(html, `<th class="size"><a href="?C=S&O=A">Size</a></th>`) {
+		t.Fatal("expected size header class")
+	}
+	if !strings.Contains(html, `<th class="date"><a href="?C=M&O=A">Last modified</a></th>`) {
+		t.Fatal("expected date header class")
+	}
+	if !strings.Contains(html, `<td colspan="2" class="link"><a href="file.txt">file.txt</a></td>`) {
+		t.Fatal("expected file link cell to use fancyindex-style class")
+	}
+	if !strings.Contains(html, `<td class="size">7 B</td>`) {
+		t.Fatal("expected size cell class")
+	}
+	if !strings.Contains(html, `<td class="date">`) {
+		t.Fatal("expected date cell class")
+	}
+	if strings.Contains(html, `td class="name"`) || strings.Contains(html, `a class="link"`) {
+		t.Fatal("expected old browser listing classes to be removed")
 	}
 }
 
