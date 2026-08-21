@@ -15,10 +15,12 @@ type handlerUser struct {
 }
 
 type Handler struct {
-	noPassword  bool
-	behindProxy bool
-	user        *handlerUser
-	users       map[string]*handlerUser
+	noPassword     bool
+	behindProxy    bool
+	browserListing BrowserListing
+	prefix         string
+	user           *handlerUser
+	users          map[string]*handlerUser
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
@@ -30,8 +32,10 @@ func NewHandler(c *Config) (http.Handler, error) {
 	}
 
 	h := &Handler{
-		noPassword:  c.NoPassword,
-		behindProxy: c.BehindProxy,
+		noPassword:     c.NoPassword,
+		behindProxy:    c.BehindProxy,
+		browserListing: c.BrowserListing,
+		prefix:         c.Prefix,
 		user: &handlerUser{
 			User:    User{UserPermissions: c.UserPermissions},
 			Handler: buildWebdavHandler(c.UserPermissions, c.Prefix, c.NoSniff, ls, logFunc),
@@ -165,10 +169,40 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 		message body, the semantics of HEAD are unmodified when applied to
 	// 		collection resources.
 	//
-	// GET (or HEAD), when applied to collection, will return the same as PROPFIND method.
+	// GET (or HEAD), when applied to collection, will serve directory listing
+	// if browser listing is enabled, otherwise return same as PROPFIND method.
 	if r.Method == "GET" || r.Method == "HEAD" {
 		info, err := user.FileSystem.Stat(r.Context(), req.path)
 		if err == nil && info.IsDir() {
+			if h.browserListing.Enabled {
+				sorting := ParseListingSortQuery(r.URL.Query())
+				html, err := RenderDirectoryListing(
+					r.Context(),
+					user.FileSystem,
+					req.path,
+					h.browserListing.Header,
+					h.browserListing.Footer,
+					sorting,
+				)
+				if err != nil {
+					lZap.Error("failed to render directory listing", zap.Error(err))
+					http.Error(w, "Failed to render directory listing", http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				if r.Method == "GET" {
+					w.WriteHeader(http.StatusOK)
+					if _, err := w.Write([]byte(html)); err != nil {
+						lZap.Error("failed to write directory listing", zap.Error(err))
+					}
+				} else {
+					// HEAD: write headers only
+					w.WriteHeader(http.StatusOK)
+				}
+				return
+			}
+
 			r.Method = "PROPFIND"
 
 			if r.Header.Get("Depth") == "" {

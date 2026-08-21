@@ -184,6 +184,26 @@ cors:
     - PUT
   exposed_headers: []
 
+# Browser listing configuration
+browserListing:
+  # Whether or not to enable directory listing in HTML format when GET is
+  # requested on a collection. Default is 'true'.
+  enabled: true
+  # Directory listing HTML is intentionally minimal (nginx autoindex/fancyindex
+  # style) so that custom header/footer snippets can define most of the look.
+  # Optional header to include at the top of directory listing pages.
+  # Can be inline HTML or a file path.
+  # header: "<h1>My WebDAV Server</h1>"
+  # header_file: /etc/webdav/header.html
+  # Optional footer to include at the bottom of directory listing pages.
+  # Can be inline HTML or a file path.
+  # footer: "<p>Copyright 2026</p>"
+  # footer_file: /etc/webdav/footer.html
+  #
+  # Sorting is selected via query parameters on listing pages:
+  #   ?sort=name|date|size&order=asc|desc
+  # Defaults: sort=name, order=asc
+
 # You define here the list of users.
 # Basic authentication is automatically be configured when users are detected 
 # below, else there will be no authentication.

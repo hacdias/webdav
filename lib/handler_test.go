@@ -1252,3 +1252,152 @@ rules:
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
+
+func TestServerBrowserListingEnabled(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file1.txt":   []byte("content1"),
+		"file2.txt":   []byte("content2"),
+		"subdir/test": []byte("test"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: true
+`, dir))
+	defer srv.Close()
+
+	// Test GET request to root - should return HTML
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, "<!DOCTYPE html>")
+	require.Contains(t, bodyStr, "file1.txt")
+	require.Contains(t, bodyStr, "file2.txt")
+	require.Contains(t, bodyStr, "subdir")
+	require.Contains(t, bodyStr, "<table>")
+}
+
+func TestServerBrowserListingDisabled(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file1.txt": []byte("content1"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: false
+`, dir))
+	defer srv.Close()
+
+	// Test GET request to root - should return 207 Multi-Status (PROPFIND)
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusMultiStatus, resp.StatusCode)
+	require.Contains(t, resp.Header.Get("Content-Type"), "text/xml")
+}
+
+func TestServerBrowserListingWithHeader(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file.txt": []byte("content"),
+	})
+
+	customHeader := "<h1>Welcome to my WebDAV Server</h1>"
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: true
+  header: %q
+`, dir, customHeader))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, customHeader)
+}
+
+func TestServerBrowserListingWithFooter(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file.txt": []byte("content"),
+	})
+
+	customFooter := "<p>Copyright 2026 - My Company</p>"
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: true
+  footer: %q
+`, dir, customFooter))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, customFooter)
+}
+
+func TestServerBrowserListingSortQuery(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"small.txt":  []byte("1"),
+		"medium.txt": []byte("12345"),
+		"large.txt":  []byte("123456789"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: true
+`, dir))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/?sort=size&order=desc")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	largePos := strings.Index(bodyStr, "large.txt")
+	mediumPos := strings.Index(bodyStr, "medium.txt")
+	smallPos := strings.Index(bodyStr, "small.txt")
+	require.True(t, largePos >= 0 && mediumPos >= 0 && smallPos >= 0)
+	require.True(t, largePos < mediumPos && mediumPos < smallPos)
+}

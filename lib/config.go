@@ -40,6 +40,7 @@ type Config struct {
 	BehindProxy     bool
 	Log             Log
 	CORS            CORS
+	BrowserListing  BrowserListing
 	Users           []User
 }
 
@@ -92,6 +93,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("CORS.Allowed_Hosts", []string{"*"})
 	v.SetDefault("CORS.Allowed_Headers", []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"})
 	v.SetDefault("CORS.Allowed_Methods", []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"})
+	v.SetDefault("BrowserListing.Enabled", true)
 
 	// Read and unmarshal configuration
 	err := v.ReadInConfig()
@@ -234,6 +236,11 @@ func (c *Config) Validate() error {
 	}
 
 	err = c.UserPermissions.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	err = c.BrowserListing.Load()
 	if err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
@@ -389,4 +396,32 @@ type CORS struct {
 	AllowedHosts   []string `mapstructure:"allowed_hosts"`
 	AllowedMethods []string `mapstructure:"allowed_methods"`
 	ExposedHeaders []string `mapstructure:"exposed_headers"`
+}
+
+type BrowserListing struct {
+	Enabled    bool
+	Header     string
+	HeaderFile string `mapstructure:"header_file"`
+	Footer     string
+	FooterFile string `mapstructure:"footer_file"`
+}
+
+func (bl *BrowserListing) Load() error {
+	if bl.HeaderFile != "" {
+		content, err := os.ReadFile(bl.HeaderFile)
+		if err != nil {
+			return fmt.Errorf("failed to read header file: %w", err)
+		}
+		bl.Header = string(content)
+	}
+
+	if bl.FooterFile != "" {
+		content, err := os.ReadFile(bl.FooterFile)
+		if err != nil {
+			return fmt.Errorf("failed to read footer file: %w", err)
+		}
+		bl.Footer = string(content)
+	}
+
+	return nil
 }
