@@ -15,7 +15,7 @@ import (
 func TestParseListingSortQuery(t *testing.T) {
 	t.Run("defaults", func(t *testing.T) {
 		got := ParseListingSortQuery(url.Values{})
-		if got.Field != listingSortByName || got.Order != listingSortAsc {
+		if got.Field != listingSortByDate || got.Order != listingSortDesc {
 			t.Fatalf("unexpected defaults: %+v", got)
 		}
 	})
@@ -29,7 +29,7 @@ func TestParseListingSortQuery(t *testing.T) {
 
 	t.Run("invalid values fallback", func(t *testing.T) {
 		got := ParseListingSortQuery(url.Values{"C": {"invalid"}, "O": {"nope"}})
-		if got.Field != listingSortByName || got.Order != listingSortAsc {
+		if got.Field != listingSortByDate || got.Order != listingSortDesc {
 			t.Fatalf("unexpected fallback values: %+v", got)
 		}
 	})
@@ -69,7 +69,11 @@ func TestRenderDirectoryListingHeaderFooter(t *testing.T) {
 		webdav.Dir(tmpDir),
 		"/",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
-		BrowserListing{Header: "<h1>HEADER</h1>", Footer: "<p>FOOTER</p>", ShowPath: true},
+		BrowserListing{
+			Header:   "<!DOCTYPE html><html><head><title>Custom</title></head><body><h1>HEADER</h1>",
+			Footer:   "<p>FOOTER</p></body></html>",
+			ShowPath: true,
+		},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
@@ -77,6 +81,15 @@ func TestRenderDirectoryListingHeaderFooter(t *testing.T) {
 
 	if !strings.Contains(html, "<h1>HEADER</h1>") || !strings.Contains(html, "<p>FOOTER</p>") {
 		t.Fatal("expected header/footer in output")
+	}
+	if strings.Count(html, "<html>") != 1 || strings.Count(html, "</html>") != 1 {
+		t.Fatal("expected exactly one html open/close tag when header/footer own the shell")
+	}
+	if strings.Count(html, "<body>") != 1 || strings.Count(html, "</body>") != 1 {
+		t.Fatal("expected exactly one body open/close tag when header/footer own the shell")
+	}
+	if strings.Contains(html, "<!DOCTYPE html>\n<html lang=\"en\">") {
+		t.Fatal("expected default shell to be skipped when a custom header is set")
 	}
 }
 
@@ -163,7 +176,7 @@ func TestRenderDirectoryListingParentDirectory(t *testing.T) {
 	if !strings.Contains(childHTML, "href=\"../\"") {
 		t.Fatal("non-root should contain parent link")
 	}
-	if !strings.Contains(childHTML, `<td colspan="2" class="link"><a href="../">../</a></td>`) {
+	if !strings.Contains(childHTML, `<td colspan="2" class="link"><a href="../" title="..">../</a></td>`) {
 		t.Fatal("parent link should use fancyindex-style link cell")
 	}
 
@@ -218,7 +231,11 @@ func TestRenderDirectoryListingShowPath(t *testing.T) {
 		webdav.Dir(tmpDir),
 		"/",
 		ListingSortOptions{Field: listingSortByName, Order: listingSortAsc},
-		BrowserListing{Header: "<h1>Custom</h1>", ShowPath: false},
+		BrowserListing{
+			Header:   "<!DOCTYPE html><html><head></head><body><h1>Custom</h1>",
+			Footer:   "</body></html>",
+			ShowPath: false,
+		},
 	)
 	if err != nil {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
@@ -268,16 +285,16 @@ func TestRenderDirectoryListingFancyindexClasses(t *testing.T) {
 		t.Fatalf("RenderDirectoryListing failed: %v", err)
 	}
 
-	if !strings.Contains(html, `<th colspan="2"><a href="?C=N&O=D">Name ↑</a></th>`) {
+	if !strings.Contains(html, `<th colspan="2"><a href="?C=N&O=D">File Name ↑</a></th>`) {
 		t.Fatal("expected filename header to span two columns")
 	}
-	if !strings.Contains(html, `<th class="size"><a href="?C=S&O=A">Size</a></th>`) {
+	if !strings.Contains(html, `<th class="size"><a href="?C=S&O=A">File Size</a></th>`) {
 		t.Fatal("expected size header class")
 	}
-	if !strings.Contains(html, `<th class="date"><a href="?C=M&O=A">Last modified</a></th>`) {
+	if !strings.Contains(html, `<th class="date"><a href="?C=M&O=A">Date</a></th>`) {
 		t.Fatal("expected date header class")
 	}
-	if !strings.Contains(html, `<td colspan="2" class="link"><a href="file.txt">file.txt</a></td>`) {
+	if !strings.Contains(html, `<td colspan="2" class="link"><a href="file.txt" title="file.txt">file.txt</a></td>`) {
 		t.Fatal("expected file link cell to use fancyindex-style class")
 	}
 	if !strings.Contains(html, `<td class="size">7 B</td>`) {
@@ -320,6 +337,37 @@ func TestSortFileEntriesByDateAndSize(t *testing.T) {
 	}
 }
 
+func TestSortFileEntriesDirectoriesFirst(t *testing.T) {
+	now := time.Now()
+	files := []FileEntry{
+		{Name: "b-file", IsDir: false, Size: 30, ModTime: now.Add(-3 * time.Hour)},
+		{Name: "a-dir", IsDir: true, Size: 0, ModTime: now.Add(-time.Hour)},
+		{Name: "c-file", IsDir: false, Size: 10, ModTime: now.Add(-2 * time.Hour)},
+		{Name: "z-dir", IsDir: true, Size: 0, ModTime: now.Add(-4 * time.Hour)},
+	}
+
+	combos := []ListingSortOptions{
+		{Field: listingSortByName, Order: listingSortAsc},
+		{Field: listingSortByName, Order: listingSortDesc},
+		{Field: listingSortByDate, Order: listingSortAsc},
+		{Field: listingSortByDate, Order: listingSortDesc},
+		{Field: listingSortBySize, Order: listingSortAsc},
+		{Field: listingSortBySize, Order: listingSortDesc},
+	}
+
+	for _, sorting := range combos {
+		entries := append([]FileEntry(nil), files...)
+		sortFileEntries(entries, sorting)
+
+		if !entries[0].IsDir || !entries[1].IsDir {
+			t.Fatalf("expected directories first for %+v, got %+v", sorting, entries)
+		}
+		if entries[2].IsDir || entries[3].IsDir {
+			t.Fatalf("expected files after directories for %+v, got %+v", sorting, entries)
+		}
+	}
+}
+
 func TestFormatSize(t *testing.T) {
 	tests := []struct {
 		size     int64
@@ -328,9 +376,9 @@ func TestFormatSize(t *testing.T) {
 		{0, "0 B"},
 		{1, "1 B"},
 		{1023, "1023 B"},
-		{1024, "1.0 KB"},
-		{1536, "1.5 KB"},
-		{1024 * 1024, "1.0 MB"},
+		{1024, "1.0 KiB"},
+		{1536, "1.5 KiB"},
+		{1024 * 1024, "1.0 MiB"},
 	}
 
 	for _, tc := range tests {

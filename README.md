@@ -185,33 +185,35 @@ cors:
   exposed_headers: []
 
 # Browser listing configuration
+# Directory listing HTML is intentionally minimal (nginx autoindex/fancyindex
+# style) so that custom header/footer snippets can define most of the look.
+# Generated listing rows use link, size, and date classes for easy customisation.
+# Sorting is selected via query parameters on listing pages, 
+# where query parameter convention is: ?C=N|M|S&O=A|D
+# C: N=name, M=last modified, S=size.
+# O: A=ascending, D=descending.
+# Defaults to Column Modified Date and Order Descending: C=M, O=D
 browserListing:
   # Whether or not to enable directory listing in HTML format when GET is
   # requested on a collection. Default is 'true'.
   enabled: true
-  # Directory listing HTML is intentionally minimal (nginx autoindex/fancyindex
-  # style) so that custom header/footer snippets can define most of the look.
-  # Generated listing rows use link, size, and date classes (nginx 
-  # autoindex/fancyindex style).
   # Hide the parent directory (../) link. Default is 'false'.
   # hide_parent_dir: false
+  #
   # Whether to show the "Index of <path>" title when no custom header is set.
   # If false the listing renders with no title. Default is 'true'.
   # show_path: true
-  # Optional header to include at the top of directory listing pages.
-  # Can be inline HTML or a file path.
-  # header: "<h1>My WebDAV Server</h1>"
-  # header_file: /etc/webdav/header.html
-  # Optional footer to include at the bottom of directory listing pages.
-  # Can be inline HTML or a file path.
-  # footer: "<p>Copyright 2026</p>"
-  # footer_file: /etc/webdav/footer.html
   #
-  # Sorting is selected via query parameters on listing pages, matching
-  # fancyindex's convention:
-  #   ?C=N|M|S&O=A|D
-  # C: N=name, M=last modified, S=size. O: A=ascending, D=descending.
-  # Defaults: C=N, O=A
+  # Optional header/footer to fully replace the outer HTML document shell of
+  # directory listing pages. Header must contain everything from <!DOCTYPE
+  # html> through the opening <body> tag (including any <style>/assets you
+  # want), and footer must contain the closing </body></html>. They must be
+  # set together: setting only one of them is a configuration error.
+  # Can be inline HTML or a file path.
+  # header: "<!DOCTYPE html><html><head><title>My WebDAV Server</title></head><body>"
+  # header_file: /etc/webdav/header.html
+  # footer: "<p>Copyright</p></body></html>"
+  # footer_file: /etc/webdav/footer.html
 
 # You define here the list of users.
 # Basic authentication is automatically be configured when users are detected 

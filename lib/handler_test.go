@@ -1353,14 +1353,16 @@ func TestServerBrowserListingWithHeader(t *testing.T) {
 		"file.txt": []byte("content"),
 	})
 
-	customHeader := "<h1>Welcome to my WebDAV Server</h1>"
+	customHeader := "<!DOCTYPE html><html><head></head><body><h1>Welcome to my WebDAV Server</h1>"
+	customFooter := "</body></html>"
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
 browserListing:
   enabled: true
   header: %q
-`, dir, customHeader))
+  footer: %q
+`, dir, customHeader, customFooter))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/")
@@ -1381,14 +1383,16 @@ func TestServerBrowserListingWithFooter(t *testing.T) {
 		"file.txt": []byte("content"),
 	})
 
-	customFooter := "<p>Copyright 2026 - My Company</p>"
+	customHeader := "<!DOCTYPE html><html><head></head><body>"
+	customFooter := "<p>Copyright 2026 - My Company</p></body></html>"
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
 browserListing:
   enabled: true
+  header: %q
   footer: %q
-`, dir, customFooter))
+`, dir, customHeader, customFooter))
 	defer srv.Close()
 
 	resp, err := http.Get(srv.URL + "/")

@@ -34,15 +34,16 @@ type ListingSortOptions struct {
 }
 
 // ParseListingSortQuery reads the fancyindex-style ?C=<column>&O=<order> query params.
+// Defaults to sorting by date, descending, when no query params are given.
 func ParseListingSortQuery(query url.Values) ListingSortOptions {
 	field, ok := listingSortFieldFromCode(query.Get("C"))
 	if !ok {
-		field = listingSortByName
+		field = listingSortByDate
 	}
 
 	order, ok := listingSortOrderFromCode(query.Get("O"))
 	if !ok {
-		order = listingSortAsc
+		order = listingSortDesc
 	}
 
 	return ListingSortOptions{
@@ -86,25 +87,24 @@ func RenderDirectoryListing(ctx context.Context, fs webdav.FileSystem, dirPath s
 	var buf bytes.Buffer
 	collectionPath := normalizeCollectionPath(dirPath)
 
-	buf.WriteString(`<!DOCTYPE html>
+	if listing.Header != "" {
+		buf.WriteString(listing.Header)
+	} else {
+		buf.WriteString(`<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <title>Index of `)
-	buf.WriteString(html.EscapeString(collectionPath))
-	buf.WriteString(`</title>
+		buf.WriteString(html.EscapeString(collectionPath))
+		buf.WriteString(`</title>
 <style>
 body { font-family: sans-serif; margin: 1rem; }
-table { border-collapse: collapse; width: 100%; }
+table { border-collapse: collapse; width: 100%; table-layout: fixed; }
 th, td { padding: 0.2rem 0.6rem; text-align: left; white-space: nowrap; }
-th.size, td.size { text-align: right; }
-td.link { width: 100%; }
+td.link { width: 100%; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
 </style>
 </head>
 <body>`)
-
-	if listing.Header != "" {
-		buf.WriteString(listing.Header)
 	}
 
 	if listing.ShowPath {
@@ -114,39 +114,29 @@ td.link { width: 100%; }
 	}
 
 	buf.WriteString(`
-<table id="list">
-<thead>
-<tr>
-<th colspan="2"><a href="`)
+<table id="list"><thead><tr><th colspan="2"><a href="`)
 	buf.WriteString(listingSortLink(listingSortByName, sorting))
 	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("Name", listingSortByName, sorting))
-	buf.WriteString(`</a></th>
-<th class="size"><a href="`)
+	buf.WriteString(listingSortLabel("File Name", listingSortByName, sorting))
+	buf.WriteString(`</a></th><th class="size"><a href="`)
 	buf.WriteString(listingSortLink(listingSortBySize, sorting))
 	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("Size", listingSortBySize, sorting))
-	buf.WriteString(`</a></th>
-<th class="date"><a href="`)
+	buf.WriteString(listingSortLabel("File Size", listingSortBySize, sorting))
+	buf.WriteString(`</a></th><th class="date"><a href="`)
 	buf.WriteString(listingSortLink(listingSortByDate, sorting))
 	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("Last modified", listingSortByDate, sorting))
-	buf.WriteString(`</a></th>
-</tr>
-</thead>
+	buf.WriteString(listingSortLabel("Date", listingSortByDate, sorting))
+	buf.WriteString(`</a></th></tr></thead>
 <tbody>`)
 
 	if dirPath != "/" && !listing.HideParentDir {
-		buf.WriteString(`<tr>
-<td colspan="2" class="link"><a href="../">../</a></td>
-<td class="size">-</td>
-<td class="date">-</td>
-</tr>
+		buf.WriteString(`<tr><td colspan="2" class="link"><a href="../" title="..">../</a></td><td class="size">-</td><td class="date">-</td></tr>
 `)
 	}
 
 	for _, entry := range files {
-		name := html.EscapeString(entry.Name)
+		title := html.EscapeString(entry.Name)
+		name := title
 		href := fileEntryLink(entry)
 		size := "-"
 		if entry.IsDir {
@@ -156,12 +146,8 @@ td.link { width: 100%; }
 		}
 
 		modTime := entry.ModTime.Format("02-Jan-2006 15:04")
-		fmt.Fprintf(&buf, `<tr>
-<td colspan="2" class="link"><a href="%s">%s</a></td>
-<td class="size">%s</td>
-<td class="date">%s</td>
-</tr>
-`, href, name, size, modTime)
+		fmt.Fprintf(&buf, `<tr><td colspan="2" class="link"><a href="%s" title="%s">%s</a></td><td class="size">%s</td><td class="date">%s</td></tr>
+`, href, title, name, size, modTime)
 	}
 
 	buf.WriteString(`</tbody>
@@ -169,10 +155,10 @@ td.link { width: 100%; }
 
 	if listing.Footer != "" {
 		buf.WriteString(listing.Footer)
-	}
-
-	buf.WriteString(`</body>
+	} else {
+		buf.WriteString(`</body>
 </html>`)
+	}
 
 	return buf.String(), nil
 }
@@ -181,6 +167,11 @@ func sortFileEntries(files []FileEntry, sorting ListingSortOptions) {
 	sort.SliceStable(files, func(i, j int) bool {
 		left := files[i]
 		right := files[j]
+
+		// Directories always come before files, regardless of sort order.
+		if left.IsDir != right.IsDir {
+			return left.IsDir
+		}
 
 		less := false
 		equal := false
@@ -295,6 +286,7 @@ func listingSortOrderFromCode(code string) (ListingSortOrder, bool) {
 	}
 }
 
+// formatSize mimics nginx-fancyindex's IEC binary units (e.g. "13.8 MiB").
 func formatSize(size int64) string {
 	const unit = 1024
 	if size < unit {
@@ -305,5 +297,5 @@ func formatSize(size int64) string {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.1f %cB", float64(size)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %ciB", float64(size)/float64(div), "KMGTPE"[exp])
 }

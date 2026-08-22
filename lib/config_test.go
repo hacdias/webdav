@@ -60,6 +60,27 @@ func TestConfigDefaults(t *testing.T) {
 	require.True(t, cfg.BrowserListing.ShowPath)
 }
 
+func TestConfigBrowserListingHeaderFooterMustBeSetTogether(t *testing.T) {
+	t.Parallel()
+
+	writeAndParseConfigWithError(t, `
+browserListing:
+  header: "<html><body>"
+`, ".yml", "header and footer must both be set")
+
+	writeAndParseConfigWithError(t, `
+browserListing:
+  footer: "</body></html>"
+`, ".yml", "header and footer must both be set")
+
+	cfg := writeAndParseConfig(t, `
+browserListing:
+  header: "<html><body>"
+  footer: "</body></html>"
+`, ".yml")
+	require.NoError(t, cfg.Validate())
+}
+
 func TestConfigCascade(t *testing.T) {
 	t.Parallel()
 

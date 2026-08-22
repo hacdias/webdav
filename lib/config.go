@@ -400,6 +400,11 @@ type CORS struct {
 	ExposedHeaders []string `mapstructure:"exposed_headers"`
 }
 
+// BrowserListing.Header and Footer, when set, replace the entire outer HTML
+// document shell (doctype, <html>, <head>, <body> open/close) instead of
+// being inserted as fragments inside a default shell: Header must contain
+// the full opening, up to and including <body>, and Footer must contain the
+// full closing, i.e. </body></html>. They must be configured together.
 type BrowserListing struct {
 	Enabled       bool
 	HideParentDir bool `mapstructure:"hide_parent_dir"`
@@ -409,6 +414,8 @@ type BrowserListing struct {
 	Footer        string
 	FooterFile    string `mapstructure:"footer_file"`
 }
+
+var errHeaderFooterMismatch = errors.New("browserListing: header and footer must both be set, or both left empty")
 
 func (bl *BrowserListing) Load() error {
 	if bl.HeaderFile != "" {
@@ -425,6 +432,10 @@ func (bl *BrowserListing) Load() error {
 			return fmt.Errorf("failed to read footer file: %w", err)
 		}
 		bl.Footer = string(content)
+	}
+
+	if (bl.Header == "") != (bl.Footer == "") {
+		return errHeaderFooterMismatch
 	}
 
 	return nil
