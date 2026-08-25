@@ -539,3 +539,23 @@ users:
 	require.True(t, cfg.Users[0].checkPassword("admin"))
 	require.True(t, cfg.Users[1].checkPassword("basic"))
 }
+
+func TestConfigHidden(t *testing.T) {
+	t.Parallel()
+
+	cfg := writeAndParseConfig(t, "", ".yml")
+	require.NoError(t, cfg.Validate())
+	require.Empty(t, cfg.Hidden)
+
+	content := `
+hidden:
+  - Thumbs.db
+  - .DS_Store
+  - "*.tmp"
+`
+	cfg = writeAndParseConfig(t, content, ".yml")
+	require.NoError(t, cfg.Validate())
+	require.Equal(t, []string{"Thumbs.db", ".DS_Store", "*.tmp"}, cfg.Hidden)
+
+	writeAndParseConfigWithError(t, "hidden:\n  - \"[\"\n", ".yml", "invalid hidden pattern")
+}

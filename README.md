@@ -95,6 +95,17 @@ debug: false
 # Disable sniffing the files to detect their content type. Default is 'false'.
 noSniff: false
 
+# A list of file name patterns to omit from directory listings. Matching is case
+# insensitive and uses shell patterns (see Go's path.Match) against the base name,
+# so both plain names like 'Thumbs.db' and globs like '*.tmp' work. Hidden files
+# are only left out of listings, they can still be accessed directly by their exact
+# path. Default is none.
+hidden: []
+# hidden:
+#   - .DS_Store
+#   - Thumbs.db
+#   - desktop.ini
+
 # Whether the server runs behind a trusted proxy or not. When this is true,
 # the header X-Forwarded-For will be used for logging the remote addresses
 # of logging attempts (if available).
