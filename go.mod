@@ -1,6 +1,6 @@
 module github.com/hacdias/webdav/v5
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/coreos/go-systemd/v22 v22.7.0
@@ -13,7 +13,7 @@ require (
 	github.com/studio-b12/gowebdav v0.13.0
 	go.uber.org/zap v1.28.0
 	golang.org/x/crypto v0.55.0
-	golang.org/x/crypto/x509roots/fallback v0.0.0-20260723152544-d701c51f7e4e
+	golang.org/x/crypto/x509roots/fallback v0.0.0-20260826144058-afebf4cb4efb
 	golang.org/x/net v0.58.0
 )
 
