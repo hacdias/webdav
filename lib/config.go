@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -36,6 +37,7 @@ type Config struct {
 	Key             string
 	Prefix          string
 	NoSniff         bool
+	Hidden          []string
 	NoPassword      bool
 	BehindProxy     bool
 	Log             Log
@@ -236,6 +238,12 @@ func (c *Config) Validate() error {
 	err = c.UserPermissions.Validate()
 	if err != nil {
 		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	for _, pattern := range c.Hidden {
+		if _, err := path.Match(pattern, ""); err != nil {
+			return fmt.Errorf("invalid config: invalid hidden pattern %q: %w", pattern, err)
+		}
 	}
 
 	for i := range c.Users {

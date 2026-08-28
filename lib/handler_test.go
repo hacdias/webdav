@@ -1252,3 +1252,46 @@ rules:
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
+
+func TestServerHiddenFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"foo.txt":         []byte("foo"),
+		"Thumbs.db":       []byte("thumbs"),
+		".DS_Store":       []byte("ds"),
+		"notes.tmp":       []byte("tmp"),
+		"sub/bar.txt":     []byte("bar"),
+		"sub/desktop.ini": []byte("ini"),
+	})
+
+	srv := makeTestServer(t, "directory: "+dir+"\nhidden:\n  - Thumbs.db\n  - .DS_Store\n  - \"*.tmp\"\n  - desktop.ini\n")
+	client := gowebdav.NewClient(srv.URL, "", "")
+
+	files, err := client.ReadDir("/")
+	require.NoError(t, err)
+
+	names := make([]string, len(files))
+	for i, file := range files {
+		names[i] = file.Name()
+	}
+	sort.Strings(names)
+	require.Equal(t, []string{"foo.txt", "sub"}, names)
+
+	// The listing of a sub collection is filtered as well.
+	files, err = client.ReadDir("/sub")
+	require.NoError(t, err)
+	require.Len(t, files, 1)
+	require.Equal(t, "bar.txt", files[0].Name())
+
+	// Hidden files are only omitted from listings, they can still be read by
+	// their exact path.
+	data, err := client.Read("/Thumbs.db")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("thumbs"), data)
+
+	// A visible file keeps working as usual.
+	data, err = client.Read("/foo.txt")
+	require.NoError(t, err)
+	require.EqualValues(t, []byte("foo"), data)
+}

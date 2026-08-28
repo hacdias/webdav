@@ -34,7 +34,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 		behindProxy: c.BehindProxy,
 		user: &handlerUser{
 			User:    User{UserPermissions: c.UserPermissions},
-			Handler: buildWebdavHandler(c.UserPermissions, c.Prefix, c.NoSniff, ls, logFunc),
+			Handler: buildWebdavHandler(c.UserPermissions, c.Prefix, c.NoSniff, c.Hidden, ls, logFunc),
 		},
 		users: map[string]*handlerUser{},
 	}
@@ -42,7 +42,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	for _, u := range c.Users {
 		h.users[u.Username] = &handlerUser{
 			User:    u,
-			Handler: buildWebdavHandler(u.UserPermissions, c.Prefix, c.NoSniff, ls, logFunc),
+			Handler: buildWebdavHandler(u.UserPermissions, c.Prefix, c.NoSniff, c.Hidden, ls, logFunc),
 		}
 	}
 
@@ -71,7 +71,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 // buildWebdavHandler creates the [webdav.Handler] for a set of user permissions,
 // selecting between single-directory and multi-directory backing depending on
 // whether directories are configured.
-func buildWebdavHandler(p UserPermissions, prefix string, noSniff bool, ls webdav.LockSystem, logFunc func(*http.Request, error)) webdav.Handler {
+func buildWebdavHandler(p UserPermissions, prefix string, noSniff bool, hidden []string, ls webdav.LockSystem, logFunc func(*http.Request, error)) webdav.Handler {
 	h := webdav.Handler{
 		Prefix: prefix,
 		Logger: logFunc,
@@ -89,6 +89,10 @@ func buildWebdavHandler(p UserPermissions, prefix string, noSniff bool, ls webda
 			noSniff: noSniff,
 		}
 		h.LockSystem = newLockSystem(ls, p.Directory)
+	}
+
+	if len(hidden) > 0 {
+		h.FileSystem = hiddenFS{FileSystem: h.FileSystem, patterns: hidden}
 	}
 
 	return h
