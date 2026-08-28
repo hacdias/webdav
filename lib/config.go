@@ -40,6 +40,7 @@ type Config struct {
 	BehindProxy     bool
 	Log             Log
 	CORS            CORS
+	BrowserListing  BrowserListing
 	Users           []User
 }
 
@@ -92,6 +93,9 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("CORS.Allowed_Hosts", []string{"*"})
 	v.SetDefault("CORS.Allowed_Headers", []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"})
 	v.SetDefault("CORS.Allowed_Methods", []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"})
+	v.SetDefault("BrowserListing.Enabled", true)
+	v.SetDefault("BrowserListing.HideParentDir", false)
+	v.SetDefault("BrowserListing.Show_Path", true)
 
 	// Read and unmarshal configuration
 	err := v.ReadInConfig()
@@ -234,6 +238,11 @@ func (c *Config) Validate() error {
 	}
 
 	err = c.UserPermissions.Validate()
+	if err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+
+	err = c.BrowserListing.Load()
 	if err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
@@ -389,4 +398,45 @@ type CORS struct {
 	AllowedHosts   []string `mapstructure:"allowed_hosts"`
 	AllowedMethods []string `mapstructure:"allowed_methods"`
 	ExposedHeaders []string `mapstructure:"exposed_headers"`
+}
+
+// BrowserListing.Header and Footer, when set, replace the entire outer HTML
+// document shell (doctype, <html>, <head>, <body> open/close) instead of
+// being inserted as fragments inside a default shell: Header must contain
+// the full opening, up to and including <body>, and Footer must contain the
+// full closing, i.e. </body></html>. They must be configured together.
+type BrowserListing struct {
+	Enabled       bool
+	HideParentDir bool `mapstructure:"hide_parent_dir"`
+	ShowPath      bool `mapstructure:"show_path"`
+	Header        string
+	HeaderFile    string `mapstructure:"header_file"`
+	Footer        string
+	FooterFile    string `mapstructure:"footer_file"`
+}
+
+var errHeaderFooterMismatch = errors.New("browserListing: header and footer must both be set, or both left empty")
+
+func (bl *BrowserListing) Load() error {
+	if bl.HeaderFile != "" {
+		content, err := os.ReadFile(bl.HeaderFile)
+		if err != nil {
+			return fmt.Errorf("failed to read header file: %w", err)
+		}
+		bl.Header = string(content)
+	}
+
+	if bl.FooterFile != "" {
+		content, err := os.ReadFile(bl.FooterFile)
+		if err != nil {
+			return fmt.Errorf("failed to read footer file: %w", err)
+		}
+		bl.Footer = string(content)
+	}
+
+	if (bl.Header == "") != (bl.Footer == "") {
+		return errHeaderFooterMismatch
+	}
+
+	return nil
 }

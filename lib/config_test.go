@@ -55,6 +55,30 @@ func TestConfigDefaults(t *testing.T) {
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
 	require.EqualValues(t, []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"}, cfg.CORS.AllowedMethods)
+	require.True(t, cfg.BrowserListing.Enabled)
+	require.False(t, cfg.BrowserListing.HideParentDir)
+	require.True(t, cfg.BrowserListing.ShowPath)
+}
+
+func TestConfigBrowserListingHeaderFooterMustBeSetTogether(t *testing.T) {
+	t.Parallel()
+
+	writeAndParseConfigWithError(t, `
+browserListing:
+  header: "<html><body>"
+`, ".yml", "header and footer must both be set")
+
+	writeAndParseConfigWithError(t, `
+browserListing:
+  footer: "</body></html>"
+`, ".yml", "header and footer must both be set")
+
+	cfg := writeAndParseConfig(t, `
+browserListing:
+  header: "<html><body>"
+  footer: "</body></html>"
+`, ".yml")
+	require.NoError(t, cfg.Validate())
 }
 
 func TestConfigCascade(t *testing.T) {
