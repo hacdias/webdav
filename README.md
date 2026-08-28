@@ -152,6 +152,8 @@ cors:
   # Whether or not CORS configuration should be applied. Default is 'false'.
   enabled: true
   credentials: true
+  # Allow Private Network Access preflight requests. Default is 'false'.
+  allow_private_network: false
   # The following are the default CORS settings when it is enabled.
   allowed_hosts:
     - '*'
@@ -240,7 +242,7 @@ A `regex` rule is matched literally against the path, and gets none of the above
 
 ### CORS
 
-The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `credentials` to `true` will allow you to:
+The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `allow_private_network` to `true` to allow Private-Network-Access preflight requests. Setting `credentials` to `true` will allow you to:
 
 1. Use `withCredentials = true` in javascript.
 2. Use the `username:password@host` syntax.

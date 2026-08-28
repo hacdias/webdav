@@ -86,6 +86,29 @@ func TestServerDefaults(t *testing.T) {
 	require.ErrorContains(t, client.Write("/foo.txt", []byte("hello world 2"), 0666), "403")
 }
 
+func TestServerCORSPrivateNetwork(t *testing.T) {
+	t.Parallel()
+
+	srv := makeTestServer(t, `
+cors:
+  enabled: true
+  allow_private_network: true`)
+	defer srv.Close()
+
+	req, err := http.NewRequest(http.MethodOptions, srv.URL, nil)
+	require.NoError(t, err)
+	req.Header.Set("Origin", "https://example.com")
+	req.Header.Set("Access-Control-Request-Method", http.MethodGet)
+	req.Header.Set("Access-Control-Request-Private-Network", "true")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	require.Equal(t, "true", resp.Header.Get("Access-Control-Allow-Private-Network"))
+}
+
 func TestServerPartialUpdateOptions(t *testing.T) {
 	t.Parallel()
 
