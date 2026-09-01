@@ -32,7 +32,7 @@ func (r *Rule) Matches(path string) bool {
 		return r.Regex.MatchString(path)
 	}
 
-	return strings.HasPrefix(path, r.Path)
+	return len(path) >= len(r.Path) && strings.EqualFold(path[:len(r.Path)], r.Path)
 }
 
 // matchesCollection checks if [Rule] names path as the collection it governs,
@@ -43,7 +43,7 @@ func (r *Rule) matchesCollection(path string) bool {
 		return false
 	}
 
-	return path == strings.TrimSuffix(r.Path, "/")
+	return strings.EqualFold(path, strings.TrimSuffix(r.Path, "/"))
 }
 
 type RulesBehavior string
