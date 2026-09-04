@@ -119,6 +119,8 @@ directory: /data
 # The default permissions for users. This is a case insensitive option. Possible
 # permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
 # permissions. For example, to allow to read and create, set "RC". Default is "R".
+# LOCK counts as a write: it needs U on a path that exists and C on one that does
+# not, since locking a path that does not exist creates it.
 permissions: R
 
 # The default permissions rules for users. Default is none. Rules are applied
@@ -239,6 +241,10 @@ Rules are matched against the request path after dot segments have been resolved
 A `path` rule is a prefix match. A rule written with a trailing slash also covers the collection it names, so `path: /secret/` applies to a request for `/secret` as well. Such a rule can only restrict that collection: acting on the collection itself also requires the permissions that apply outside the rule, since the operation takes place in the parent collection.
 
 A `regex` rule is matched literally against the path, and gets none of the above handling. In particular `regex: "^/secret/"` does **not** match a request for `/secret` itself. Write `regex: "^/secret(/|$)"` if you want to cover the collection too.
+
+Rules apply to every path an operation touches, not only the one it names. Collection listings leave out entries the rules deny, copying a collection leaves those entries behind, and a `MOVE` or `DELETE` that would act on a denied descendant is refused outright.
+
+Rules follow the case sensitivity of the file system, which each served directory is probed for at startup. Where names are case-insensitive, as on APFS and NTFS, `path: /secret/` also covers `/SECRET/`, a `regex` is matched against the folded path as well as the path as written, and Unicode normal forms count as one name. Elsewhere rules are matched exactly, since `/secret` and `/SECRET` are then different directories.
 
 ### CORS
 

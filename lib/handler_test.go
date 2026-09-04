@@ -677,9 +677,13 @@ users:
 
 	client := gowebdav.NewClient(srv.URL, "basic", "basic")
 
+	// A rule denying a path also hides it from the collection containing it.
 	files, err := client.ReadDir("/")
 	require.NoError(t, err)
-	require.Len(t, files, 5)
+	require.Len(t, files, 4)
+	for _, f := range files {
+		require.NotEqual(t, "c", f.Name())
+	}
 
 	err = client.Write("/foo.txt", []byte("new"), 0666)
 	require.NoError(t, err)
@@ -804,9 +808,13 @@ users:
 
 	client := gowebdav.NewClient(srv.URL, "basic", "basic")
 
+	// A rule denying a path also hides it from the collection containing it.
 	files, err := client.ReadDir("/prefix")
 	require.NoError(t, err)
-	require.Len(t, files, 5)
+	require.Len(t, files, 4)
+	for _, f := range files {
+		require.NotEqual(t, "c", f.Name())
+	}
 
 	err = client.Write("/prefix/foo.txt", []byte("new"), 0666)
 	require.NoError(t, err)
@@ -1225,6 +1233,311 @@ rules:
 	require.Equal(t, http.StatusNoContent, do(t, "DELETE", grantSrv.URL+"/pub/x.txt"))
 	require.Equal(t, http.StatusForbidden, do(t, "DELETE", grantSrv.URL+"/pub"))
 	require.Equal(t, http.StatusForbidden, do(t, "PROPFIND", grantSrv.URL+"/pub"))
+}
+
+// doRequest sends a raw request, for what gowebdav does not expose directly.
+// An empty username sends no credentials.
+func doRequest(t *testing.T, method, url, username, password string, headers map[string]string, body string) (int, string) {
+	t.Helper()
+
+	var reader io.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	}
+
+	req, err := http.NewRequest(method, url, reader)
+	require.NoError(t, err)
+
+	if username != "" {
+		req.SetBasicAuth(username, password)
+	}
+
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+
+	data, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+
+	return resp.StatusCode, string(data)
+}
+
+const exclusiveWriteLock = `<?xml version="1.0" encoding="utf-8" ?>
+<D:lockinfo xmlns:D="DAV:">
+  <D:lockscope><D:exclusive/></D:lockscope>
+  <D:locktype><D:write/></D:locktype>
+  <D:owner>tester</D:owner>
+</D:lockinfo>`
+
+// TestServerRulesShadowedCollection covers a broader rule shadowing one that
+// names a collection: resolving "/data/secret" through "/data/" would skip the
+// deny rule, leaving the collection listable, relocatable and removable.
+func TestServerRulesShadowedCollection(t *testing.T) {
+	t.Parallel()
+
+	for _, tc := range []struct {
+		name     string
+		config   string
+		username string
+	}{
+		{
+			name: "path rule shadows",
+			config: `
+permissions: none
+rules:
+  - path: "/data/"
+    permissions: CRUD
+  - path: "/data/secret/"
+    permissions: none`,
+		},
+		{
+			name: "regex rule shadows",
+			config: `
+permissions: none
+rules:
+  - regex: "^/data/"
+    permissions: CRUD
+  - path: "/data/secret/"
+    permissions: none`,
+		},
+		{
+			// The shadowing rule need not sit next to the rule it shadows.
+			name:     "appended global rule shadows",
+			username: "basic",
+			config: `
+permissions: none
+rules:
+  - path: "/data/"
+    permissions: CRUD
+users:
+  - username: basic
+    password: basic
+    rulesBehavior: append
+    rules:
+      - path: "/data/secret/"
+        permissions: none`,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			dir := makeTestDirectory(t, map[string][]byte{
+				"data/secret/flag.txt": []byte("secret"),
+			})
+
+			srv := makeTestServer(t, fmt.Sprintf("directory: %s\n%s\n", dir, tc.config))
+			defer srv.Close()
+
+			do := func(method, path string, headers map[string]string) int {
+				t.Helper()
+				code, _ := doRequest(t, method, srv.URL+path, tc.username, "basic", headers, "")
+				return code
+			}
+
+			// Controls: the deny rule holds inside the collection, and for the
+			// collection named with its trailing slash.
+			require.Equal(t, http.StatusForbidden, do("GET", "/data/secret/flag.txt", nil))
+			require.Equal(t, http.StatusForbidden, do("PROPFIND", "/data/secret/", map[string]string{"Depth": "1"}))
+
+			// Named without the trailing slash it is the same collection.
+			require.Equal(t, http.StatusForbidden, do("PROPFIND", "/data/secret", map[string]string{"Depth": "1"}))
+			require.Equal(t, http.StatusForbidden, do("DELETE", "/data/secret", nil))
+			require.Equal(t, http.StatusForbidden, do("MOVE", "/data/secret", map[string]string{"Destination": srv.URL + "/data/exposed"}))
+			require.Equal(t, http.StatusForbidden, do("COPY", "/data/secret", map[string]string{"Destination": srv.URL + "/data/copied"}))
+
+			require.FileExists(t, filepath.Join(dir, "data", "secret", "flag.txt"))
+			require.NoFileExists(t, filepath.Join(dir, "data", "exposed", "flag.txt"))
+			require.NoFileExists(t, filepath.Join(dir, "data", "copied", "flag.txt"))
+		})
+	}
+}
+
+// TestServerRulesCollectionGrantedByEnclosingRule guards the other direction: a
+// rule naming a collection must not lose access an enclosing rule grants.
+func TestServerRulesCollectionGrantedByEnclosingRule(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{"data/sub/foo.txt": []byte("foo")})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: none
+rules:
+  - path: "/data/"
+    permissions: CRUD
+  - path: "/data/sub/"
+    permissions: CRUD
+`, dir))
+	defer srv.Close()
+
+	code, _ := doRequest(t, "PROPFIND", srv.URL+"/data/sub", "", "", map[string]string{"Depth": "1"}, "")
+	require.Equal(t, http.StatusMultiStatus, code)
+}
+
+// TestServerRulesRecursiveDescendants covers operations acting on a whole
+// subtree, which authorizing only the requested path let reach denied
+// descendants: reading, enumerating, relocating and destroying them.
+func TestServerRulesRecursiveDescendants(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"secret/flag.txt":        []byte("top secret"),
+		"secret/public-note.txt": []byte("note"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/secret/flag.txt"
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	// Control: the rule holds when the request names the denied path.
+	code, _ := doRequest(t, "GET", srv.URL+"/secret/flag.txt", "", "", nil, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	// Enumerating the parent must not report the denied descendant.
+	code, body := doRequest(t, "PROPFIND", srv.URL+"/secret", "", "", map[string]string{"Depth": "infinity"}, "")
+	require.Equal(t, http.StatusMultiStatus, code)
+	require.NotContains(t, body, "flag.txt")
+	require.Contains(t, body, "public-note.txt")
+
+	// Copying the parent must leave the denied descendant behind, not carry it
+	// to a path no rule covers. The permitted sibling still copies.
+	code, _ = doRequest(t, "COPY", srv.URL+"/secret", "", "", map[string]string{"Destination": srv.URL + "/stolen", "Depth": "infinity"}, "")
+	require.Equal(t, http.StatusCreated, code)
+
+	code, _ = doRequest(t, "GET", srv.URL+"/stolen/flag.txt", "", "", nil, "")
+	require.Equal(t, http.StatusNotFound, code)
+
+	code, _ = doRequest(t, "GET", srv.URL+"/stolen/public-note.txt", "", "", nil, "")
+	require.Equal(t, http.StatusOK, code)
+
+	// MOVE and DELETE act on the subtree in one call, so they cannot be partial.
+	code, _ = doRequest(t, "MOVE", srv.URL+"/secret", "", "", map[string]string{"Destination": srv.URL + "/moved"}, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	code, _ = doRequest(t, "DELETE", srv.URL+"/secret", "", "", nil, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	require.FileExists(t, filepath.Join(dir, "secret", "flag.txt"))
+}
+
+// TestServerRulesRecursiveDescendantsMultiDir is the same defect across mounts,
+// where copying out of one lands the denied file in another.
+func TestServerRulesRecursiveDescendantsMultiDir(t *testing.T) {
+	t.Parallel()
+
+	dirA := makeTestDirectory(t, map[string][]byte{"secret/flag.txt": []byte("mount secret")})
+	dirB := makeTestDirectory(t, map[string][]byte{"keep.txt": []byte("keep")})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+permissions: CRUD
+directories:
+  - name: alpha
+    path: %s
+  - name: beta
+    path: %s
+rules:
+  - path: "/alpha/secret/flag.txt"
+    permissions: none
+`, dirA, dirB))
+	defer srv.Close()
+
+	code, _ := doRequest(t, "COPY", srv.URL+"/alpha/secret", "", "", map[string]string{"Destination": srv.URL + "/beta/stolen", "Depth": "infinity"}, "")
+	require.Equal(t, http.StatusCreated, code)
+
+	code, _ = doRequest(t, "GET", srv.URL+"/beta/stolen/flag.txt", "", "", nil, "")
+	require.Equal(t, http.StatusNotFound, code)
+
+	code, _ = doRequest(t, "DELETE", srv.URL+"/alpha/secret", "", "", nil, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	require.FileExists(t, filepath.Join(dirA, "secret", "flag.txt"))
+}
+
+// TestServerLockRequiresWritePermission covers LOCK being authorized by any
+// permission at all, which let a read-only user create a file by locking a
+// missing path, and hold a write lock that blocks legitimate writers.
+func TestServerLockRequiresWritePermission(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{"existing.txt": []byte("x")})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: none
+users:
+  - username: reader
+    password: reader
+    permissions: R
+  - username: writer
+    password: writer
+    permissions: CRUD
+`, dir))
+	defer srv.Close()
+
+	lock := func(username, path string) int {
+		t.Helper()
+		code, _ := doRequest(t, "LOCK", srv.URL+path, username, username,
+			map[string]string{"Timeout": "Infinite", "Content-Type": "application/xml"}, exclusiveWriteLock)
+		return code
+	}
+
+	// A read-only user may neither lock a resource into existence nor reserve one.
+	require.Equal(t, http.StatusForbidden, lock("reader", "/created-by-lock.txt"))
+	require.NoFileExists(t, filepath.Join(dir, "created-by-lock.txt"))
+	require.Equal(t, http.StatusForbidden, lock("reader", "/existing.txt"))
+
+	// Reading is unaffected.
+	code, _ := doRequest(t, "GET", srv.URL+"/existing.txt", "reader", "reader", nil, "")
+	require.Equal(t, http.StatusOK, code)
+
+	// A user who can write still locks as before.
+	require.Equal(t, http.StatusOK, lock("writer", "/existing.txt"))
+	require.Equal(t, http.StatusCreated, lock("writer", "/new.txt"))
+}
+
+// TestServerRulesCaseInsensitiveFilesystem covers a rule being evaded by asking
+// for a differently cased spelling of the same file.
+func TestServerRulesCaseInsensitiveFilesystem(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{"secret/flag.txt": []byte("secret")})
+
+	if _, err := os.Stat(filepath.Join(dir, "SECRET", "flag.txt")); err != nil {
+		t.Skip("backing file system distinguishes path case")
+	}
+
+	// A regex rule has to follow the file system too, or it is evaded the same
+	// way while looking like it denies the path.
+	for _, rule := range []string{`path: "/secret/"`, `regex: "^/secret/"`} {
+		srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - %s
+    permissions: none
+`, dir, rule))
+
+		for _, path := range []string{"/secret/flag.txt", "/SECRET/flag.txt", "/Secret/flag.txt"} {
+			code, _ := doRequest(t, "GET", srv.URL+path, "", "", nil, "")
+			require.Equal(t, http.StatusForbidden, code, rule, path)
+
+			code, _ = doRequest(t, "DELETE", srv.URL+path, "", "", nil, "")
+			require.Equal(t, http.StatusForbidden, code, rule, path)
+		}
+
+		srv.Close()
+	}
+
+	require.FileExists(t, filepath.Join(dir, "secret", "flag.txt"))
 }
 
 func TestServerRulesEmptyPrefixDestination(t *testing.T) {

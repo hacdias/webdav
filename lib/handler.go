@@ -11,7 +11,8 @@ import (
 
 type handlerUser struct {
 	User
-	webdav.Handler
+	handler webdav.Handler
+	fs      permissionsFS
 }
 
 type Handler struct {
@@ -32,18 +33,12 @@ func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
-		user: &handlerUser{
-			User:    User{UserPermissions: c.UserPermissions},
-			Handler: buildWebdavHandler(c.UserPermissions, c.Prefix, c.NoSniff, ls, logFunc),
-		},
-		users: map[string]*handlerUser{},
+		user:        newHandlerUser(User{UserPermissions: c.UserPermissions}, c, ls, logFunc),
+		users:       map[string]*handlerUser{},
 	}
 
 	for _, u := range c.Users {
-		h.users[u.Username] = &handlerUser{
-			User:    u,
-			Handler: buildWebdavHandler(u.UserPermissions, c.Prefix, c.NoSniff, ls, logFunc),
-		}
+		h.users[u.Username] = newHandlerUser(u, c, ls, logFunc)
 	}
 
 	if c.CORS.Enabled {
@@ -69,26 +64,46 @@ func NewHandler(c *Config) (http.Handler, error) {
 	return h, nil
 }
 
-// buildWebdavHandler creates the [webdav.Handler] for a set of user permissions,
-// selecting between single-directory and multi-directory backing depending on
-// whether directories are configured.
-func buildWebdavHandler(p UserPermissions, prefix string, noSniff bool, ls webdav.LockSystem, logFunc func(*http.Request, error)) webdav.Handler {
-	h := webdav.Handler{
-		Prefix: prefix,
-		Logger: logFunc,
-	}
+// newHandlerUser prepares a user for serving, keeping the unwrapped file system
+// alongside the handler.
+func newHandlerUser(u User, c *Config, ls webdav.LockSystem, logFunc func(*http.Request, error)) *handlerUser {
+	fs := permissionsFS{fs: buildFileSystem(u.UserPermissions, c.NoSniff), perms: u.UserPermissions}
 
+	return &handlerUser{
+		User:    u,
+		handler: buildWebdavHandler(u.UserPermissions, fs, c.Prefix, ls, logFunc),
+		fs:      fs,
+	}
+}
+
+// buildFileSystem creates the unfiltered [webdav.FileSystem] for a set of user
+// permissions, selecting between single-directory and multi-directory backing
+// depending on whether directories are configured.
+func buildFileSystem(p UserPermissions, noSniff bool) webdav.FileSystem {
 	if p.useDirectories {
-		h.FileSystem = multiDir{
+		return multiDir{
 			mounts:  p.Directories,
 			noSniff: noSniff,
 		}
+	}
+
+	return Dir{
+		Dir:     webdav.Dir(p.Directory),
+		noSniff: noSniff,
+	}
+}
+
+// buildWebdavHandler creates the [webdav.Handler] for a set of user permissions.
+func buildWebdavHandler(p UserPermissions, fs permissionsFS, prefix string, ls webdav.LockSystem, logFunc func(*http.Request, error)) webdav.Handler {
+	h := webdav.Handler{
+		Prefix:     prefix,
+		Logger:     logFunc,
+		FileSystem: fs,
+	}
+
+	if p.useDirectories {
 		h.LockSystem = newMultiDirLockSystem(ls, p.Directories)
 	} else {
-		h.FileSystem = Dir{
-			Dir:     webdav.Dir(p.Directory),
-			noSniff: noSniff,
-		}
 		h.LockSystem = newLockSystem(ls, p.Directory)
 	}
 
@@ -132,24 +147,45 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert the HTTP request into an internal request type
-	req, err := newRequest(r, h.user.Prefix)
+	req, err := newRequest(r, h.user.handler.Prefix)
 	if err != nil {
 		lZap.Info("invalid request path or destination", zap.Error(err))
 		http.Error(w, "Invalid request path or destination", http.StatusBadRequest)
 		return
 	}
 
-	// Checks for user permissions relatively to this PATH.
-	allowed := user.Allowed(req, func(filename string) bool {
-		_, err := user.FileSystem.Stat(r.Context(), filename)
+	fileExists := func(filename string) bool {
+		_, err := user.fs.Stat(r.Context(), filename)
 		return !os.IsNotExist(err)
-	})
+	}
+
+	// Checks for user permissions relatively to this PATH.
+	allowed := user.Allowed(req, fileExists)
 
 	lZap.Debug("allowed & method & path", zap.Bool("allowed", allowed), zap.String("method", r.Method), zap.String("path", r.URL.Path))
 
 	if !allowed {
 		w.WriteHeader(http.StatusForbidden)
 		return
+	}
+
+	// MOVE and DELETE act on a whole subtree in one call, so every descendant
+	// needs authorizing here. COPY and PROPFIND go through permFS instead.
+	if r.Method == "MOVE" || r.Method == "DELETE" {
+		ok, err := user.fs.allowedThroughout(r.Context(), req.path, func(p Permissions) bool {
+			return p.Allowed(req, fileExists)
+		})
+		if err != nil {
+			lZap.Error("could not authorize subtree", zap.String("path", req.path), zap.Error(err))
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		if !ok {
+			lZap.Info("denied by a rule on a descendant", zap.String("method", r.Method), zap.String("path", req.path))
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
 	}
 
 	if r.Method == "HEAD" {
@@ -168,7 +204,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	//
 	// GET (or HEAD), when applied to collection, will return the same as PROPFIND method.
 	if r.Method == "GET" || r.Method == "HEAD" {
-		info, err := user.FileSystem.Stat(r.Context(), req.path)
+		info, err := user.fs.Stat(r.Context(), req.path)
 		if err == nil && info.IsDir() {
 			r.Method = "PROPFIND"
 
@@ -189,7 +225,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Runs the WebDAV.
-	user.ServeHTTP(w, r)
+	user.handler.ServeHTTP(w, r)
 }
 
 // getRequestLogger creates a zap.Logger using the request remote ip.
