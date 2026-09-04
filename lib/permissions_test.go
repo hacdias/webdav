@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"path/filepath"
 	"regexp"
 	"testing"
 
@@ -69,22 +70,28 @@ func TestParentCollection(t *testing.T) {
 func TestFlipCase(t *testing.T) {
 	t.Parallel()
 
-	alt, ok := flipCase("/srv/dav")
-	require.True(t, ok)
-	require.Equal(t, "/srv/Dav", alt)
+	// flipCase builds a path to stat, so it is separated the way the running
+	// system separates paths, not the way request paths are.
+	srv := func(name string) string {
+		return filepath.Join("/srv", name)
+	}
 
-	alt, ok = flipCase("/srv/DAV")
+	alt, ok := flipCase(srv("dav"))
 	require.True(t, ok)
-	require.Equal(t, "/srv/dAV", alt)
+	require.Equal(t, srv("Dav"), alt)
+
+	alt, ok = flipCase(srv("DAV"))
+	require.True(t, ok)
+	require.Equal(t, srv("dAV"), alt)
 
 	// Only the first letter flips, so a name whose case mapping does not
 	// round-trip is left alone rather than changed by more than its case.
-	alt, ok = flipCase("/srv/ıstanbul")
+	alt, ok = flipCase(srv("ıstanbul"))
 	require.True(t, ok)
-	require.Equal(t, "/srv/ıStanbul", alt)
+	require.Equal(t, srv("ıStanbul"), alt)
 
 	// Nothing to flip.
-	_, ok = flipCase("/srv/001")
+	_, ok = flipCase(srv("001"))
 	require.False(t, ok)
 }
 
