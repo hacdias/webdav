@@ -270,11 +270,13 @@ location / {
   proxy_set_header Host $host;
   proxy_redirect off;
 
-  # Ensure COPY and MOVE commands work. Change https://example.com to the
-  # correct address where the WebDAV server will be deployed at.
+  # Ensure COPY and MOVE commands work by rewriting the Destination header to
+  # contain only the path, e.g. /test.txt. Note that the captured group already
+  # includes the leading slash: adding another one would produce a Destination
+  # such as //test.txt, which is parsed as a host name and rejected.
   set $dest $http_destination;
-  if ($http_destination ~ "^https://example.com(?<path>(.+))") {
-    set $dest /$path;
+  if ($http_destination ~ "^https?://[^/]+(?<path>/.*)$") {
+    set $dest $path;
   }
   proxy_set_header Destination $dest;
 }
@@ -298,6 +300,41 @@ example.com {
     }
 }
 ```
+
+#### Serving Under a Subpath
+
+If the server is not served from the root of the domain, do not strip the subpath in the reverse proxy. The server needs to see it: `PROPFIND` responses contain the full path of each resource, and clients reject the ones that fall outside of the URL they requested. Pass the subpath through and set [`prefix`](#configuration) accordingly, so that the server strips it itself and adds it back to the responses:
+
+```yaml
+prefix: /webdav
+```
+
+With Caddy, that means using `handle` instead of `handle_path`, as the latter strips the matched prefix before proxying:
+
+```Caddyfile
+example.com {
+    @hasDest header_regexp dest ^https?://[^/]+(.*)$
+    header @hasDest Destination {re.dest.1}
+
+    handle /webdav* {
+        reverse_proxy 127.0.0.1:6065 {
+            header_up X-Real-IP {remote_host}
+            header_up REMOTE-HOST {remote_host}
+        }
+    }
+}
+```
+
+With Nginx, use a `location` block for the subpath and keep `proxy_pass` without a trailing path, as a trailing path would replace the prefix:
+
+```nginx
+location /webdav {
+  proxy_pass http://127.0.0.1:6065;
+  # ... the remaining headers, as above.
+}
+```
+
+Both the request path and the `Destination` header must carry the prefix. A request without it is answered with `400 Bad Request`.
 
 ## Examples
 
