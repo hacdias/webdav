@@ -55,10 +55,10 @@ func TestConfigDefaults(t *testing.T) {
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
 	require.EqualValues(t, []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"}, cfg.CORS.AllowedMethods)
-<<<<<<< HEAD
 	require.True(t, cfg.BrowserListing.Enabled)
 	require.False(t, cfg.BrowserListing.HideParentDir)
 	require.True(t, cfg.BrowserListing.ShowPath)
+	require.False(t, cfg.CORS.AllowPrivateNetwork)
 }
 
 func TestConfigBrowserListingHeaderFooterMustBeSetTogether(t *testing.T) {
@@ -80,9 +80,6 @@ browserListing:
   footer: "</body></html>"
 `, ".yml")
 	require.NoError(t, cfg.Validate())
-=======
-	require.False(t, cfg.CORS.AllowPrivateNetwork)
->>>>>>> be20c9cc71fa2dfaa0a93e1c1f063780885e15b7
 }
 
 func TestConfigCascade(t *testing.T) {
