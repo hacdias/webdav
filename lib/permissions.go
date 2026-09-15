@@ -26,10 +26,21 @@ func (r *Rule) Validate() error {
 	return nil
 }
 
-// Matches checks if [Rule] matches the given path.
-func (r *Rule) Matches(path string) bool {
+// Matches checks if [Rule] matches the given path. When caseInsensitive is set
+// the backing file system ignores case, so this must too. A regex is tried
+// against the folded path as well as the path as written, which only widens it
+// to spellings naming the same file.
+func (r *Rule) Matches(path string, caseInsensitive bool) bool {
 	if r.Regex != nil {
+		if caseInsensitive {
+			return r.Regex.MatchString(path) || r.Regex.MatchString(foldPath(path))
+		}
+
 		return r.Regex.MatchString(path)
+	}
+
+	if caseInsensitive {
+		return strings.HasPrefix(foldPath(path), foldPath(r.Path))
 	}
 
 	return strings.HasPrefix(path, r.Path)
@@ -38,9 +49,13 @@ func (r *Rule) Matches(path string) bool {
 // matchesCollection checks if [Rule] names path as the collection it governs,
 // such as a rule for "/c/" and a request for "/c". Regex rules are matched
 // literally and are not considered here.
-func (r *Rule) matchesCollection(path string) bool {
+func (r *Rule) matchesCollection(path string, caseInsensitive bool) bool {
 	if r.Regex != nil || !strings.HasSuffix(r.Path, "/") {
 		return false
+	}
+
+	if caseInsensitive {
+		return foldPath(path) == foldPath(strings.TrimSuffix(r.Path, "/"))
 	}
 
 	return path == strings.TrimSuffix(r.Path, "/")
@@ -63,6 +78,7 @@ type UserPermissions struct {
 	directoryExplicit   bool
 	directoriesExplicit bool
 	useDirectories      bool
+	caseInsensitive     bool
 }
 
 type DirectoryMount struct {
@@ -93,24 +109,44 @@ func (p UserPermissions) Allowed(r *request, fileExists func(string) bool) bool 
 // allowedAt resolves the permissions that govern path and applies check to them.
 func (p UserPermissions) allowedAt(path string, check func(Permissions) bool) bool {
 	// Go through rules beginning from the last one. The first matched rule returns.
+	// Both senses of matching are tested per rule: in separate passes a broader
+	// rule would return first and shadow the narrower one naming the collection.
 	for i := len(p.Rules) - 1; i >= 0; i-- {
-		if p.Rules[i].Matches(path) {
+		if p.Rules[i].Matches(path, p.caseInsensitive) {
 			return check(p.Rules[i].Permissions)
 		}
-	}
 
-	// A rule written with a trailing slash also governs the collection it names,
-	// so that a rule for "/c/" cannot be evaded by asking for "/c". Such a request
-	// acts on an entry of the parent collection, so it needs the permissions that
-	// apply there too. Requiring both means the rule can restrict the collection
-	// without granting access that would otherwise not exist.
-	for i := len(p.Rules) - 1; i >= 0; i-- {
-		if p.Rules[i].matchesCollection(path) {
-			return check(p.Rules[i].Permissions) && check(p.Permissions)
+		// A rule written with a trailing slash also governs the collection it names,
+		// so a rule for "/c/" cannot be evaded by asking for "/c". Such a request acts
+		// on an entry of the parent collection, so it needs those permissions too: the
+		// rule can restrict the collection, not grant access that would not exist.
+		if p.Rules[i].matchesCollection(path, p.caseInsensitive) {
+			if !check(p.Rules[i].Permissions) {
+				return false
+			}
+
+			// Through the rules, not the global permissions alone, which would deny
+			// a collection that an enclosing rule grants.
+			if parent := parentCollection(path); parent != path {
+				return p.allowedAt(parent, check)
+			}
+
+			return check(p.Permissions)
 		}
 	}
 
 	return check(p.Permissions)
+}
+
+// parentCollection returns the collection containing path, such as "/data/" for
+// "/data/sub", or "/" for a top-level entry. That bounds allowedAt at the root.
+func parentCollection(p string) string {
+	i := strings.LastIndex(strings.TrimSuffix(p, "/"), "/")
+	if i <= 0 {
+		return "/"
+	}
+
+	return p[:i+1]
 }
 
 func (p *UserPermissions) Validate() error {
@@ -127,6 +163,8 @@ func (p *UserPermissions) Validate() error {
 		}
 	}
 
+	p.caseInsensitive = p.hasCaseInsensitiveBacking()
+
 	for _, r := range p.Rules {
 		if err := r.Validate(); err != nil {
 			return fmt.Errorf("invalid permissions: %w", err)
@@ -141,6 +179,23 @@ func (p *UserPermissions) Validate() error {
 	}
 
 	return nil
+}
+
+// hasCaseInsensitiveBacking reports whether any backing directory resolves names
+// regardless of case. Mounts spread over volumes that differ all fold, which
+// keeps deny rules effective on the case-insensitive ones.
+func (p *UserPermissions) hasCaseInsensitiveBacking() bool {
+	if p.useDirectories || len(p.Directories) > 0 {
+		for _, mount := range p.Directories {
+			if caseInsensitiveFS(mount.Path) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	return caseInsensitiveFS(p.Directory)
 }
 
 func (d *DirectoryMounts) Validate() error {
@@ -237,8 +292,16 @@ func (p Permissions) Allowed(r *request, fileExists func(string) bool) bool {
 		return p.Read && p.Delete
 	case "DELETE":
 		return p.Delete
-	case "LOCK", "UNLOCK":
-		return p.Create || p.Read || p.Update || p.Delete
+	case "LOCK":
+		// A lock is write-class: it reserves the resource against other writers,
+		// and locking a path that does not exist creates it.
+		if fileExists(r.path) {
+			return p.Update
+		} else {
+			return p.Create
+		}
+	case "UNLOCK":
+		return p.Create || p.Update
 	default:
 		return false
 	}

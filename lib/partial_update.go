@@ -48,7 +48,7 @@ func writePartialUpdateError(w http.ResponseWriter, err error, fallbackStatus in
 
 func (u *handlerUser) handleOptions(w http.ResponseWriter, r *http.Request, reqPath string) {
 	allow := "OPTIONS, LOCK, PUT, MKCOL, PATCH"
-	if fi, err := u.FileSystem.Stat(r.Context(), reqPath); err == nil {
+	if fi, err := u.fs.Stat(r.Context(), reqPath); err == nil {
 		if fi.IsDir() {
 			allow = "OPTIONS, LOCK, DELETE, PROPPATCH, COPY, MOVE, UNLOCK, PROPFIND"
 		} else {
@@ -97,7 +97,7 @@ func (u *handlerUser) handlePartialUpdate(w http.ResponseWriter, r *http.Request
 	defer release()
 
 	ctx := r.Context()
-	fi, statErr := u.FileSystem.Stat(ctx, reqPath)
+	fi, statErr := u.fs.Stat(ctx, reqPath)
 	exists := statErr == nil
 	if statErr != nil && !os.IsNotExist(statErr) {
 		http.Error(w, statErr.Error(), http.StatusMethodNotAllowed)
@@ -157,7 +157,7 @@ func (u *handlerUser) handlePartialUpdate(w http.ResponseWriter, r *http.Request
 	if !exists {
 		flag |= os.O_CREATE
 	}
-	f, err := u.FileSystem.OpenFile(ctx, reqPath, flag, 0666)
+	f, err := u.fs.OpenFile(ctx, reqPath, flag, 0666)
 	if err != nil {
 		if os.IsNotExist(err) {
 			http.Error(w, err.Error(), http.StatusConflict)
@@ -361,7 +361,7 @@ func (u *handlerUser) confirmPartialUpdateLocks(r *http.Request, src string) (re
 	hdr := r.Header.Get("If")
 	if hdr == "" {
 		now := time.Now()
-		token, err := u.LockSystem.Create(now, webdav.LockDetails{
+		token, err := u.handler.LockSystem.Create(now, webdav.LockDetails{
 			Root:      src,
 			Duration:  -1,
 			ZeroDepth: true,
@@ -373,7 +373,7 @@ func (u *handlerUser) confirmPartialUpdateLocks(r *http.Request, src string) (re
 			return nil, http.StatusInternalServerError, err
 		}
 		return func() {
-			_ = u.LockSystem.Unlock(now, token)
+			_ = u.handler.LockSystem.Unlock(now, token)
 		}, 0, nil
 	}
 
@@ -393,7 +393,7 @@ func (u *handlerUser) confirmPartialUpdateLocks(r *http.Request, src string) (re
 			if parsedURL.Host != r.Host {
 				continue
 			}
-			lsrc, err = stripPartialPrefix(parsedURL.Path, u.Prefix)
+			lsrc, err = stripPartialPrefix(parsedURL.Path, u.handler.Prefix)
 			if err != nil {
 				return nil, http.StatusNotFound, err
 			}
@@ -401,7 +401,7 @@ func (u *handlerUser) confirmPartialUpdateLocks(r *http.Request, src string) (re
 				lsrc = src
 			}
 		}
-		release, err = u.LockSystem.Confirm(time.Now(), lsrc, "", l.conditions...)
+		release, err = u.handler.LockSystem.Confirm(time.Now(), lsrc, "", l.conditions...)
 		if errors.Is(err, webdav.ErrConfirmationFailed) {
 			continue
 		}

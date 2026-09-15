@@ -119,6 +119,8 @@ directory: /data
 # The default permissions for users. This is a case insensitive option. Possible
 # permissions: C (Create), R (Read), U (Update), D (Delete). You can combine multiple
 # permissions. For example, to allow to read and create, set "RC". Default is "R".
+# LOCK counts as a write: it needs U on a path that exists and C on one that does
+# not, since locking a path that does not exist creates it.
 permissions: R
 
 # The default permissions rules for users. Default is none. Rules are applied
@@ -152,6 +154,8 @@ cors:
   # Whether or not CORS configuration should be applied. Default is 'false'.
   enabled: true
   credentials: true
+  # Allow Private Network Access preflight requests. Default is 'false'.
+  allow_private_network: false
   # The following are the default CORS settings when it is enabled.
   allowed_hosts:
     - '*'
@@ -269,9 +273,13 @@ A `path` rule is a prefix match. A rule written with a trailing slash also cover
 
 A `regex` rule is matched literally against the path, and gets none of the above handling. In particular `regex: "^/secret/"` does **not** match a request for `/secret` itself. Write `regex: "^/secret(/|$)"` if you want to cover the collection too.
 
+Rules apply to every path an operation touches, not only the one it names. Collection listings leave out entries the rules deny, copying a collection leaves those entries behind, and a `MOVE` or `DELETE` that would act on a denied descendant is refused outright.
+
+Rules follow the case sensitivity of the file system, which each served directory is probed for at startup. Where names are case-insensitive, as on APFS and NTFS, `path: /secret/` also covers `/SECRET/`, a `regex` is matched against the folded path as well as the path as written, and Unicode normal forms count as one name. Elsewhere rules are matched exactly, since `/secret` and `/SECRET` are then different directories.
+
 ### CORS
 
-The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `credentials` to `true` will allow you to:
+The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `allow_private_network` to `true` to allow Private-Network-Access preflight requests. Setting `credentials` to `true` will allow you to:
 
 1. Use `withCredentials = true` in javascript.
 2. Use the `username:password@host` syntax.
@@ -293,11 +301,13 @@ location / {
   proxy_set_header Host $host;
   proxy_redirect off;
 
-  # Ensure COPY and MOVE commands work. Change https://example.com to the
-  # correct address where the WebDAV server will be deployed at.
+  # Ensure COPY and MOVE commands work by rewriting the Destination header to
+  # contain only the path, e.g. /test.txt. Note that the captured group already
+  # includes the leading slash: adding another one would produce a Destination
+  # such as //test.txt, which is parsed as a host name and rejected.
   set $dest $http_destination;
-  if ($http_destination ~ "^https://example.com(?<path>(.+))") {
-    set $dest /$path;
+  if ($http_destination ~ "^https?://[^/]+(?<path>/.*)$") {
+    set $dest $path;
   }
   proxy_set_header Destination $dest;
 }
@@ -321,6 +331,41 @@ example.com {
     }
 }
 ```
+
+#### Serving Under a Subpath
+
+If the server is not served from the root of the domain, do not strip the subpath in the reverse proxy. The server needs to see it: `PROPFIND` responses contain the full path of each resource, and clients reject the ones that fall outside of the URL they requested. Pass the subpath through and set [`prefix`](#configuration) accordingly, so that the server strips it itself and adds it back to the responses:
+
+```yaml
+prefix: /webdav
+```
+
+With Caddy, that means using `handle` instead of `handle_path`, as the latter strips the matched prefix before proxying:
+
+```Caddyfile
+example.com {
+    @hasDest header_regexp dest ^https?://[^/]+(.*)$
+    header @hasDest Destination {re.dest.1}
+
+    handle /webdav* {
+        reverse_proxy 127.0.0.1:6065 {
+            header_up X-Real-IP {remote_host}
+            header_up REMOTE-HOST {remote_host}
+        }
+    }
+}
+```
+
+With Nginx, use a `location` block for the subpath and keep `proxy_pass` without a trailing path, as a trailing path would replace the prefix:
+
+```nginx
+location /webdav {
+  proxy_pass http://127.0.0.1:6065;
+  # ... the remaining headers, as above.
+}
+```
+
+Both the request path and the `Destination` header must carry the prefix. A request without it is answered with `400 Bad Request`.
 
 ## Examples
 

@@ -55,6 +55,7 @@ func TestConfigDefaults(t *testing.T) {
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
 	require.EqualValues(t, []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"}, cfg.CORS.AllowedMethods)
+<<<<<<< HEAD
 	require.True(t, cfg.BrowserListing.Enabled)
 	require.False(t, cfg.BrowserListing.HideParentDir)
 	require.True(t, cfg.BrowserListing.ShowPath)
@@ -79,6 +80,9 @@ browserListing:
   footer: "</body></html>"
 `, ".yml")
 	require.NoError(t, cfg.Validate())
+=======
+	require.False(t, cfg.CORS.AllowPrivateNetwork)
+>>>>>>> be20c9cc71fa2dfaa0a93e1c1f063780885e15b7
 }
 
 func TestConfigCascade(t *testing.T) {
@@ -380,6 +384,7 @@ func TestConfigKeys(t *testing.T) {
 cors:
   enabled: true
   credentials: true
+  allow_private_network: true
   allowed_headers:
     - Depth
   allowed_hosts:
@@ -393,6 +398,7 @@ cors:
 
 	require.True(t, cfg.CORS.Enabled)
 	require.True(t, cfg.CORS.Credentials)
+	require.True(t, cfg.CORS.AllowPrivateNetwork)
 	require.EqualValues(t, []string{"Content-Length", "Content-Range"}, cfg.CORS.ExposedHeaders)
 	require.EqualValues(t, []string{"Depth"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"http://localhost:8080"}, cfg.CORS.AllowedHosts)
