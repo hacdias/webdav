@@ -169,8 +169,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// MOVE and DELETE act on a whole subtree in one call, so every descendant
-	// needs authorizing here. COPY and PROPFIND go through permFS instead.
+	// MOVE and DELETE act on a whole source subtree in one call, so every
+	// descendant needs authorizing here. Reading COPY and PROPFIND out of the
+	// source goes through permFS instead.
 	if r.Method == "MOVE" || r.Method == "DELETE" {
 		ok, err := user.fs.allowedThroughout(r.Context(), req.path, func(p Permissions) bool {
 			return p.Allowed(req, fileExists)
@@ -185,6 +186,50 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			lZap.Info("denied by a rule on a descendant", zap.String("method", r.Method), zap.String("path", req.path))
 			w.WriteHeader(http.StatusForbidden)
 			return
+		}
+	}
+
+	// Excerpt from RFC4918, section 9.9.3, on MOVE:
+	//
+	//		If a resource exists at the destination and the Overwrite header is
+	//		"T", then prior to performing the move, the server MUST perform a
+	//		DELETE with "Depth: infinity" on the destination resource.
+	//
+	// And from section 9.8.4, on COPY:
+	//
+	//		When a collection is overwritten, the membership of the destination
+	//		collection after the successful COPY request MUST be the same
+	//		membership as the source collection immediately before the COPY.
+	//
+	// Either way whatever the destination collection held is gone, which
+	// golang.org/x/net/webdav carries out as a RemoveAll before the rename or
+	// the copy. Writing over a file is an update, already authorized by Allowed,
+	// but removing a collection takes everything under it. Nothing writes to
+	// those descendants, they are only destroyed, so authorize the destination
+	// the way DELETE on that collection would be.
+	if (r.Method == "MOVE" || r.Method == "COPY") && req.destination != "" {
+		info, err := user.fs.Stat(r.Context(), req.destination)
+		if err == nil && info.IsDir() {
+			deletable := func(p Permissions) bool { return p.Delete }
+
+			// allowedThroughout reaches descendants only, and the destination
+			// check in Allowed covers the collection itself as an update rather
+			// than a delete, so that is checked here.
+			ok := user.allowedAt(req.destination, deletable)
+			if ok {
+				ok, err = user.fs.allowedThroughout(r.Context(), req.destination, deletable)
+				if err != nil {
+					lZap.Error("could not authorize destination subtree", zap.String("destination", req.destination), zap.Error(err))
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+			}
+
+			if !ok {
+				lZap.Info("denied by a rule on the destination collection", zap.String("method", r.Method), zap.String("destination", req.destination))
+				w.WriteHeader(http.StatusForbidden)
+				return
+			}
 		}
 	}
 

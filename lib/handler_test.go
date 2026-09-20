@@ -1462,6 +1462,179 @@ rules:
 	require.FileExists(t, filepath.Join(dirA, "secret", "flag.txt"))
 }
 
+// TestServerRulesDestinationOverwriteDescendants covers a COPY or MOVE onto an
+// existing collection, which replaces it: the server deletes the destination
+// with "Depth: infinity" first, reaching descendants that authorizing only the
+// destination itself let it destroy.
+func TestServerRulesDestinationOverwriteDescendants(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"shared/protected/confidential.txt": []byte("top secret"),
+		"empty/.keep":                       []byte(""),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/shared/protected/"
+    permissions: R
+`, dir))
+	defer srv.Close()
+
+	confidential := filepath.Join(dir, "shared", "protected", "confidential.txt")
+
+	// Controls: the rule holds when the request names the denied subtree.
+	code, _ := doRequest(t, "DELETE", srv.URL+"/shared/protected/confidential.txt", "", "", nil, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	code, _ = doRequest(t, "DELETE", srv.URL+"/shared/", "", "", nil, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	// Overwriting the collection above the rule destroys the denied subtree, so
+	// it is refused for the same reason DELETE is.
+	code, _ = doRequest(t, "MOVE", srv.URL+"/empty/", "", "", map[string]string{
+		"Destination": srv.URL + "/shared/",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	// COPY overwrites unless the header says otherwise, so it needs no Overwrite.
+	code, _ = doRequest(t, "COPY", srv.URL+"/empty/", "", "", map[string]string{
+		"Destination": srv.URL + "/shared/",
+		"Depth":       "infinity",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	require.FileExists(t, confidential)
+}
+
+// TestServerRulesDestinationOverwriteDescendantsMultiDir is the same defect
+// across mounts, where the destination collection lives under another mount.
+func TestServerRulesDestinationOverwriteDescendantsMultiDir(t *testing.T) {
+	t.Parallel()
+
+	dirA := makeTestDirectory(t, map[string][]byte{"shared/protected/flag.txt": []byte("mount secret")})
+	dirB := makeTestDirectory(t, map[string][]byte{"empty/.keep": []byte("")})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+permissions: CRUD
+directories:
+  - name: alpha
+    path: %s
+  - name: beta
+    path: %s
+rules:
+  - path: "/alpha/shared/protected/"
+    permissions: R
+`, dirA, dirB))
+	defer srv.Close()
+
+	code, _ := doRequest(t, "MOVE", srv.URL+"/beta/empty/", "", "", map[string]string{
+		"Destination": srv.URL + "/alpha/shared/",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	code, _ = doRequest(t, "COPY", srv.URL+"/beta/empty/", "", "", map[string]string{
+		"Destination": srv.URL + "/alpha/shared/",
+		"Depth":       "infinity",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	require.FileExists(t, filepath.Join(dirA, "shared", "protected", "flag.txt"))
+}
+
+// TestServerRulesDestinationOverwriteRequiresDelete covers the permission class
+// the overwrite is authorized under. Removing a collection is delete-class, so a
+// rule that grants writes but withholds D refuses the overwrite, whether it
+// governs the destination itself or something beneath it.
+func TestServerRulesDestinationOverwriteRequiresDelete(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"empty/.keep":       []byte(""),
+		"empty2/.keep":      []byte(""),
+		"nodelete/note.txt": []byte("kept by the rule on the collection"),
+		"shared/keep/n.txt": []byte("kept by the rule on a descendant"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/nodelete/"
+    permissions: CRU
+  - path: "/shared/keep/"
+    permissions: CRU
+`, dir))
+	defer srv.Close()
+
+	// The rule governs the destination collection itself.
+	code, _ := doRequest(t, "MOVE", srv.URL+"/empty/", "", "", map[string]string{
+		"Destination": srv.URL + "/nodelete/",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+	require.FileExists(t, filepath.Join(dir, "nodelete", "note.txt"))
+
+	// The rule governs a descendant of the destination collection.
+	code, _ = doRequest(t, "MOVE", srv.URL+"/empty2/", "", "", map[string]string{
+		"Destination": srv.URL + "/shared/",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+	require.FileExists(t, filepath.Join(dir, "shared", "keep", "n.txt"))
+}
+
+// TestServerDestinationOverwriteAllowed pins what overwriting a destination is
+// still allowed to do, so the delete-class check on collections does not spread
+// to writing over a file. Replacing a file is update-class, the same class PUT
+// over an existing file needs, which clients rely on when they save by writing a
+// temporary file and moving it over the target.
+func TestServerDestinationOverwriteAllowed(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"empty/.keep":       []byte(""),
+		"empty2/.keep":      []byte(""),
+		"plain/note.txt":    []byte("plain"),
+		"updatable/doc.txt": []byte("updatable"),
+		"source.txt":        []byte("source"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/updatable/doc.txt"
+    permissions: RU
+`, dir))
+	defer srv.Close()
+
+	// No rule withholds D anywhere under the destination.
+	code, _ := doRequest(t, "MOVE", srv.URL+"/empty/", "", "", map[string]string{
+		"Destination": srv.URL + "/plain/",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusNoContent, code)
+
+	// A destination that does not exist is created, not overwritten.
+	code, _ = doRequest(t, "MOVE", srv.URL+"/empty2/", "", "", map[string]string{
+		"Destination": srv.URL + "/fresh/",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusCreated, code)
+
+	// A file destination needs only the U its rule grants, not D.
+	code, _ = doRequest(t, "MOVE", srv.URL+"/source.txt", "", "", map[string]string{
+		"Destination": srv.URL + "/updatable/doc.txt",
+		"Overwrite":   "T",
+	}, "")
+	require.Equal(t, http.StatusNoContent, code)
+}
+
 // TestServerLockRequiresWritePermission covers LOCK being authorized by any
 // permission at all, which let a read-only user create a file by locking a
 // missing path, and hold a write lock that blocks legitimate writers.

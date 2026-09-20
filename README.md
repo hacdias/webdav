@@ -121,6 +121,9 @@ directory: /data
 # permissions. For example, to allow to read and create, set "RC". Default is "R".
 # LOCK counts as a write: it needs U on a path that exists and C on one that does
 # not, since locking a path that does not exist creates it.
+# Being overwritten counts as well: a COPY or MOVE onto an existing file replaces
+# it and needs U, while one onto an existing collection removes everything it
+# holds and needs D, on the collection and on every path under it.
 permissions: R
 
 # The default permissions rules for users. Default is none. Rules are applied
@@ -243,6 +246,8 @@ A `path` rule is a prefix match. A rule written with a trailing slash also cover
 A `regex` rule is matched literally against the path, and gets none of the above handling. In particular `regex: "^/secret/"` does **not** match a request for `/secret` itself. Write `regex: "^/secret(/|$)"` if you want to cover the collection too.
 
 Rules apply to every path an operation touches, not only the one it names. Collection listings leave out entries the rules deny, copying a collection leaves those entries behind, and a `MOVE` or `DELETE` that would act on a denied descendant is refused outright.
+
+Overwriting a destination is authorized for what it destroys. A `COPY` or `MOVE` onto an existing destination replaces it: RFC4918 has `MOVE` perform a `DELETE` with `Depth: infinity` on the destination first, and requires an overwritten collection to end up with exactly the membership the source had, so either way whatever was there is gone. Replacing a file needs `U` on it, the same permission `PUT` needs. Replacing a collection removes everything it holds, so it needs `D` on that collection and on every path beneath it: a rule withholding `D` anywhere under a destination refuses the overwrite outright, even where it grants `C` and `U`.
 
 Rules follow the case sensitivity of the file system, which each served directory is probed for at startup. Where names are case-insensitive, as on APFS and NTFS, `path: /secret/` also covers `/SECRET/`, a `regex` is matched against the folded path as well as the path as written, and Unicode normal forms count as one name. Elsewhere rules are matched exactly, since `/secret` and `/SECRET` are then different directories.
 
