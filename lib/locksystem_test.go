@@ -77,3 +77,63 @@ func TestMultiDirLockSystemUsesSlashSeparatedKeys(t *testing.T) {
 	require.Equal(t, path.Join(filepath.ToSlash(mounts[0].Path), "report.txt"), key)
 	require.NotContains(t, key, "\\")
 }
+
+func TestLockSystemConfirmSkipsDestinationForMove(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	ls := newLockSystem(webdav.NewMemLS(), dir)
+	now := time.Now()
+
+	// Create a lock on the source file (simulating temp file lock).
+	srcToken, err := ls.Create(now, webdav.LockDetails{
+		Root:      "/temp.txt",
+		Duration:  time.Minute,
+		ZeroDepth: true,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = ls.Unlock(time.Now(), srcToken)
+	})
+
+	// MOVE: confirm with source lock and no destination lock.
+	// This should succeed — the If header only covers the source.
+	release, err := ls.Confirm(now, "/temp.txt", "/original.txt", webdav.Condition{
+		Token: srcToken,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, release)
+	release()
+
+	// MOVE without any valid lock should fail.
+	_, err = ls.Confirm(now, "/temp.txt", "/original.txt")
+	require.ErrorIs(t, err, webdav.ErrConfirmationFailed)
+}
+
+func TestLockSystemConfirmStillChecksDestinationWhenNoSource(t *testing.T) {
+	t.Parallel()
+
+	dir := t.TempDir()
+	ls := newLockSystem(webdav.NewMemLS(), dir)
+	now := time.Now()
+
+	// Create a lock on the destination file.
+	dstToken, err := ls.Create(now, webdav.LockDetails{
+		Root:      "/dest.txt",
+		Duration:  time.Minute,
+		ZeroDepth: true,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = ls.Unlock(time.Now(), dstToken)
+	})
+
+	// When name0 is empty (e.g. COPY with no source lock),
+	// destination conditions should still be checked.
+	release, err := ls.Confirm(now, "", "/dest.txt", webdav.Condition{
+		Token: dstToken,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, release)
+	release()
+}
