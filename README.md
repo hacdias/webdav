@@ -199,7 +199,8 @@ cors:
 # Defaults to Column Modified Date and Order Descending: C=M, O=D
 browserListing:
   # Whether or not to enable directory listing in HTML format when GET is
-  # requested on a collection. Default is 'true'.
+  # requested on a collection. When disabled, GET on a collection returns the
+  # same 207 Multi-Status response as PROPFIND. Default is 'false'.
   enabled: true
   # Hide the parent directory (../) link. Default is 'false'.
   # hide_parent_dir: false

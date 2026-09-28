@@ -3,18 +3,23 @@ package lib
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"fmt"
-	"html"
+	"html/template"
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"golang.org/x/net/webdav"
 )
+
+//go:embed browser_listing.html
+var listingTemplateSource string
+
+var listingTemplate = template.Must(template.New("listing").Parse(listingTemplateSource))
 
 type ListingSortField string
 type ListingSortOrder string
@@ -59,12 +64,40 @@ type FileEntry struct {
 	ModTime time.Time
 }
 
+// listingPage is the data handed to browser_listing.html.
+type listingPage struct {
+	Path       string
+	ShowPath   bool
+	ShowParent bool
+	// Header and Footer come from the operator's configuration and are
+	// therefore trusted: they are the only values rendered without escaping.
+	Header     template.HTML
+	Footer     template.HTML
+	NameColumn listingColumn
+	SizeColumn listingColumn
+	DateColumn listingColumn
+	Entries    []listingEntry
+}
+
+type listingColumn struct {
+	Href  string
+	Label string
+}
+
+type listingEntry struct {
+	Name    string
+	Href    string
+	IsDir   bool
+	Size    string
+	ModTime string
+}
+
 func RenderDirectoryListing(ctx context.Context, fs webdav.FileSystem, dirPath string, sorting ListingSortOptions, listing BrowserListing) (string, error) {
 	file, err := fs.OpenFile(ctx, dirPath, os.O_RDONLY, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to open directory: %w", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	entries, err := file.Readdir(-1)
 	if err != nil {
@@ -84,80 +117,35 @@ func RenderDirectoryListing(ctx context.Context, fs webdav.FileSystem, dirPath s
 
 	sortFileEntries(files, sorting)
 
-	var buf bytes.Buffer
-	collectionPath := normalizeCollectionPath(dirPath)
-
-	if listing.Header != "" {
-		buf.WriteString(listing.Header)
-	} else {
-		buf.WriteString(`<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Index of `)
-		buf.WriteString(html.EscapeString(collectionPath))
-		buf.WriteString(`</title>
-<style>
-body { font-family: sans-serif; margin: 1rem; }
-table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-th, td { padding: 0.2rem 0.6rem; text-align: left; white-space: nowrap; }
-td.link { width: 100%; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
-</style>
-</head>
-<body>`)
-	}
-
-	if listing.ShowPath {
-		buf.WriteString(`<h1>Index of `)
-		buf.WriteString(html.EscapeString(collectionPath))
-		buf.WriteString(`</h1>`)
-	}
-
-	buf.WriteString(`
-<table id="list"><thead><tr><th colspan="2"><a href="`)
-	buf.WriteString(listingSortLink(listingSortByName, sorting))
-	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("File Name", listingSortByName, sorting))
-	buf.WriteString(`</a></th><th class="size"><a href="`)
-	buf.WriteString(listingSortLink(listingSortBySize, sorting))
-	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("File Size", listingSortBySize, sorting))
-	buf.WriteString(`</a></th><th class="date"><a href="`)
-	buf.WriteString(listingSortLink(listingSortByDate, sorting))
-	buf.WriteString(`">`)
-	buf.WriteString(listingSortLabel("Date", listingSortByDate, sorting))
-	buf.WriteString(`</a></th></tr></thead>
-<tbody>`)
-
-	if dirPath != "/" && !listing.HideParentDir {
-		buf.WriteString(`<tr><td colspan="2" class="link"><a href="../" title="..">../</a></td><td class="size">-</td><td class="date">-</td></tr>
-`)
+	page := listingPage{
+		Path:       normalizeCollectionPath(dirPath),
+		ShowPath:   listing.ShowPath,
+		ShowParent: dirPath != "/" && !listing.HideParentDir,
+		Header:     template.HTML(listing.Header),
+		Footer:     template.HTML(listing.Footer),
+		NameColumn: listingSortColumn("File Name", listingSortByName, sorting),
+		SizeColumn: listingSortColumn("File Size", listingSortBySize, sorting),
+		DateColumn: listingSortColumn("Date", listingSortByDate, sorting),
 	}
 
 	for _, entry := range files {
-		title := html.EscapeString(entry.Name)
-		name := title
-		href := fileEntryLink(entry)
 		size := "-"
-		if entry.IsDir {
-			name += "/"
-		} else {
+		if !entry.IsDir {
 			size = formatSize(entry.Size)
 		}
 
-		modTime := entry.ModTime.Format("02-Jan-2006 15:04")
-		fmt.Fprintf(&buf, `<tr><td colspan="2" class="link"><a href="%s" title="%s">%s</a></td><td class="size">%s</td><td class="date">%s</td></tr>
-`, href, title, name, size, modTime)
+		page.Entries = append(page.Entries, listingEntry{
+			Name:    entry.Name,
+			Href:    fileEntryLink(entry),
+			IsDir:   entry.IsDir,
+			Size:    size,
+			ModTime: entry.ModTime.Format("02-Jan-2006 15:04"),
+		})
 	}
 
-	buf.WriteString(`</tbody>
-</table>`)
-
-	if listing.Footer != "" {
-		buf.WriteString(listing.Footer)
-	} else {
-		buf.WriteString(`</body>
-</html>`)
+	var buf bytes.Buffer
+	if err := listingTemplate.Execute(&buf, page); err != nil {
+		return "", fmt.Errorf("failed to render directory listing: %w", err)
 	}
 
 	return buf.String(), nil
@@ -226,6 +214,13 @@ func listingSortLabel(label string, field ListingSortField, current ListingSortO
 	return label + " ↑"
 }
 
+func listingSortColumn(label string, field ListingSortField, current ListingSortOptions) listingColumn {
+	return listingColumn{
+		Href:  listingSortLink(field, current),
+		Label: listingSortLabel(label, field, current),
+	}
+}
+
 func normalizeCollectionPath(p string) string {
 	clean := path.Clean("/" + strings.TrimSpace(p))
 	if clean != "/" {
@@ -234,8 +229,11 @@ func normalizeCollectionPath(p string) string {
 	return clean
 }
 
+// fileEntryLink builds a relative link to an entry. url.URL.String escapes the
+// name and prefixes it with "./" when it contains a colon, so that a name such
+// as "javascript:alert(1)" can never be read as a URL scheme.
 func fileEntryLink(entry FileEntry) string {
-	link := url.PathEscape(filepath.ToSlash(entry.Name))
+	link := (&url.URL{Path: entry.Name}).String()
 	if entry.IsDir {
 		return link + "/"
 	}

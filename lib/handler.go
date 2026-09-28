@@ -19,7 +19,6 @@ type Handler struct {
 	noPassword     bool
 	behindProxy    bool
 	browserListing BrowserListing
-	prefix         string
 	user           *handlerUser
 	users          map[string]*handlerUser
 }
@@ -36,7 +35,6 @@ func NewHandler(c *Config) (http.Handler, error) {
 		noPassword:     c.NoPassword,
 		behindProxy:    c.BehindProxy,
 		browserListing: c.BrowserListing,
-		prefix:         c.Prefix,
 		user:           newHandlerUser(User{UserPermissions: c.UserPermissions}, c, ls, logFunc),
 		users:          map[string]*handlerUser{},
 	}

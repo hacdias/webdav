@@ -1609,7 +1609,7 @@ browserListing:
 	// Test GET request to root - should return HTML
 	resp, err := http.Get(srv.URL + "/")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
@@ -1643,7 +1643,7 @@ browserListing:
 
 	resp, err := http.Get(srv.URL + "/subdir/")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
@@ -1665,21 +1665,25 @@ func TestServerBrowserListingDisabled(t *testing.T) {
 		"file1.txt": []byte("content1"),
 	})
 
-	srv := makeTestServer(t, fmt.Sprintf(`
-directory: %s
-permissions: R
-browserListing:
-  enabled: false
-`, dir))
-	defer srv.Close()
+	for name, extra := range map[string]string{
+		"Default":  "",
+		"Explicit": "browserListing:\n  enabled: false\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	// Test GET request to root - should return 207 Multi-Status (PROPFIND)
-	resp, err := http.Get(srv.URL + "/")
-	require.NoError(t, err)
-	defer resp.Body.Close()
+			srv := makeTestServer(t, fmt.Sprintf("directory: %s\npermissions: R\n%s", dir, extra))
+			defer srv.Close()
 
-	require.Equal(t, http.StatusMultiStatus, resp.StatusCode)
-	require.Contains(t, resp.Header.Get("Content-Type"), "text/xml")
+			// Test GET request to root - should return 207 Multi-Status (PROPFIND)
+			resp, err := http.Get(srv.URL + "/")
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, http.StatusMultiStatus, resp.StatusCode)
+			require.Contains(t, resp.Header.Get("Content-Type"), "text/xml")
+		})
+	}
 }
 
 func TestServerBrowserListingWithHeader(t *testing.T) {
@@ -1703,7 +1707,7 @@ browserListing:
 
 	resp, err := http.Get(srv.URL + "/")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -1733,7 +1737,7 @@ browserListing:
 
 	resp, err := http.Get(srv.URL + "/")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
@@ -1761,7 +1765,7 @@ browserListing:
 
 	resp, err := http.Get(srv.URL + "/?C=S&O=D")
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	body, err := io.ReadAll(resp.Body)
@@ -1773,4 +1777,45 @@ browserListing:
 	smallPos := strings.Index(bodyStr, "small.txt")
 	require.True(t, largePos >= 0 && mediumPos >= 0 && smallPos >= 0)
 	require.True(t, largePos < mediumPos && mediumPos < smallPos)
+}
+
+func TestServerBrowserListingHidesForbiddenEntries(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"public.txt":      []byte("public"),
+		"secret/flag.txt": []byte("flag"),
+		"hidden.txt":      []byte("hidden"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+browserListing:
+  enabled: true
+rules:
+  - path: /secret/
+    permissions: none
+  - path: /hidden.txt
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, "public.txt")
+	require.NotContains(t, bodyStr, "secret")
+	require.NotContains(t, bodyStr, "hidden.txt")
+
+	resp, err = http.Get(srv.URL + "/secret/")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }

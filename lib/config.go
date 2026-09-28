@@ -93,7 +93,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("CORS.Allowed_Hosts", []string{"*"})
 	v.SetDefault("CORS.Allowed_Headers", []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"})
 	v.SetDefault("CORS.Allowed_Methods", []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"})
-	v.SetDefault("BrowserListing.Enabled", true)
+	v.SetDefault("BrowserListing.Enabled", false)
 	v.SetDefault("BrowserListing.HideParentDir", false)
 	v.SetDefault("BrowserListing.Show_Path", true)
 
