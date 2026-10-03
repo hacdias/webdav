@@ -16,7 +16,7 @@ import (
 	"golang.org/x/net/webdav"
 )
 
-//go:embed browser_listing.html
+//go:embed listing.html
 var listingTemplateSource string
 
 var listingTemplate = template.Must(template.New("listing").Parse(listingTemplateSource))
@@ -64,7 +64,7 @@ type FileEntry struct {
 	ModTime time.Time
 }
 
-// listingPage is the data handed to browser_listing.html.
+// listingPage is the data handed to listing.html.
 type listingPage struct {
 	Path       string
 	ShowPath   bool
@@ -92,7 +92,7 @@ type listingEntry struct {
 	ModTime string
 }
 
-func RenderDirectoryListing(ctx context.Context, fs webdav.FileSystem, dirPath string, sorting ListingSortOptions, listing BrowserListing) (string, error) {
+func RenderListing(ctx context.Context, fs webdav.FileSystem, dirPath string, sorting ListingSortOptions, listing Listing) (string, error) {
 	file, err := fs.OpenFile(ctx, dirPath, os.O_RDONLY, 0)
 	if err != nil {
 		return "", fmt.Errorf("failed to open directory: %w", err)

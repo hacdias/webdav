@@ -11,7 +11,7 @@ td.link { width: 100%; white-space: nowrap; text-overflow: ellipsis; overflow: h
 </style>
 </head>
 <body>{{end}}
-{{- if .ShowPath}}<h1>Index of {{.Path}}</h1>{{end}}
+{{- if and .ShowPath (not .Header)}}<h1>Index of {{.Path}}</h1>{{end}}
 <table id="list"><thead><tr><th colspan="2"><a href="{{.NameColumn.Href}}">{{.NameColumn.Label}}</a></th><th class="size"><a href="{{.SizeColumn.Href}}">{{.SizeColumn.Label}}</a></th><th class="date"><a href="{{.DateColumn.Href}}">{{.DateColumn.Label}}</a></th></tr></thead>
 <tbody>
 {{- if .ShowParent}}<tr><td colspan="2" class="link"><a href="../" title="..">../</a></td><td class="size">-</td><td class="date">-</td></tr>

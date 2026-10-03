@@ -36,8 +36,8 @@ func makeListingFS(t *testing.T, m map[string]string) webdav.FileSystem {
 	return fs
 }
 
-func renderListing(t *testing.T, fs webdav.FileSystem, dirPath string, sorting ListingSortOptions, listing BrowserListing) string {
-	html, err := RenderDirectoryListing(context.Background(), fs, dirPath, sorting, listing)
+func renderListing(t *testing.T, fs webdav.FileSystem, dirPath string, sorting ListingSortOptions, listing Listing) string {
+	html, err := RenderListing(context.Background(), fs, dirPath, sorting, listing)
 	require.NoError(t, err)
 	return html
 }
@@ -73,7 +73,7 @@ func TestRenderDirectoryListingBasic(t *testing.T) {
 		"subdir/":   "",
 	})
 
-	html := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 
 	if !strings.Contains(html, "<!DOCTYPE html>") || !strings.Contains(html, `<table id="list">`) {
 		t.Fatal("expected basic html table output")
@@ -94,7 +94,7 @@ func TestRenderDirectoryListingBasic(t *testing.T) {
 
 func TestRenderDirectoryListingHeaderFooter(t *testing.T) {
 	fs := makeListingFS(t, nil)
-	html := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{
+	html := renderListing(t, fs, "/", sortByNameAsc, Listing{
 		Header:   "<!DOCTYPE html><html><head><title>Custom</title></head><body><h1>HEADER</h1>",
 		Footer:   "<p>FOOTER</p></body></html>",
 		ShowPath: true,
@@ -119,7 +119,7 @@ func TestRenderDirectoryListingHeaderFooter(t *testing.T) {
 
 func TestRenderDirectoryListingSortLinks(t *testing.T) {
 	fs := makeListingFS(t, nil)
-	html := renderListing(t, fs, "/", ListingSortOptions{Field: listingSortByDate, Order: listingSortAsc}, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/", ListingSortOptions{Field: listingSortByDate, Order: listingSortAsc}, Listing{ShowPath: true})
 
 	if !strings.Contains(html, `href="?C=N&amp;O=A"`) {
 		t.Fatal("expected name sort link")
@@ -138,7 +138,7 @@ func TestRenderDirectoryListingEscapingAndLinks(t *testing.T) {
 		"mydir/":       "",
 	})
 
-	html := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 
 	if !strings.Contains(html, `title="a b&amp;c&lt;d&gt;.txt">a b&amp;c&lt;d&gt;.txt</a>`) {
 		t.Fatal("expected escaped display name")
@@ -160,7 +160,7 @@ func TestRenderDirectoryListingHostileNames(t *testing.T) {
 		"?C=N&O=A#frag":                      "x",
 	})
 
-	html := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 
 	t.Run("URL schemes", func(t *testing.T) {
 		require.NotContains(t, html, `href="javascript:`)
@@ -185,7 +185,7 @@ func TestRenderDirectoryListingEscapesPath(t *testing.T) {
 		"<b>dir/": "",
 	})
 
-	html := renderListing(t, fs, "/<b>dir", sortByNameAsc, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/<b>dir", sortByNameAsc, Listing{ShowPath: true})
 
 	require.NotContains(t, html, "<b>")
 	require.Contains(t, html, "<title>Index of /&lt;b&gt;dir/</title>")
@@ -197,12 +197,12 @@ func TestRenderDirectoryListingParentDirectory(t *testing.T) {
 		"child/": "",
 	})
 
-	rootHTML := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	rootHTML := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 	if strings.Contains(rootHTML, `href="../"`) {
 		t.Fatal("root should not contain parent link")
 	}
 
-	childHTML := renderListing(t, fs, "/child", sortByNameAsc, BrowserListing{ShowPath: true})
+	childHTML := renderListing(t, fs, "/child", sortByNameAsc, Listing{ShowPath: true})
 	if !strings.Contains(childHTML, `href="../"`) {
 		t.Fatal("non-root should contain parent link")
 	}
@@ -210,7 +210,7 @@ func TestRenderDirectoryListingParentDirectory(t *testing.T) {
 		t.Fatal("parent link should use fancyindex-style link cell")
 	}
 
-	hiddenChildHTML := renderListing(t, fs, "/child", sortByNameAsc, BrowserListing{HideParentDir: true, ShowPath: true})
+	hiddenChildHTML := renderListing(t, fs, "/child", sortByNameAsc, Listing{HideParentDir: true, ShowPath: true})
 	if strings.Contains(hiddenChildHTML, `href="../"`) {
 		t.Fatal("non-root should not contain parent link when hideParentDir is true")
 	}
@@ -219,17 +219,17 @@ func TestRenderDirectoryListingParentDirectory(t *testing.T) {
 func TestRenderDirectoryListingShowPath(t *testing.T) {
 	fs := makeListingFS(t, nil)
 
-	shown := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	shown := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 	if !strings.Contains(shown, "<h1>Index of") {
 		t.Fatal("expected default title when showPath is true")
 	}
 
-	hidden := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: false})
+	hidden := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: false})
 	if strings.Contains(hidden, "<h1>Index of") {
 		t.Fatal("expected no title when showPath is false and no custom header is set")
 	}
 
-	withHeader := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{
+	withHeader := renderListing(t, fs, "/", sortByNameAsc, Listing{
 		Header:   "<!DOCTYPE html><html><head></head><body><h1>Custom</h1>",
 		Footer:   "</body></html>",
 		ShowPath: false,
@@ -246,7 +246,7 @@ func TestRenderDirectoryListingSortByName(t *testing.T) {
 		"banana.txt": "b",
 	})
 
-	html := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 
 	apple := strings.Index(html, "apple.txt")
 	banana := strings.Index(html, "banana.txt")
@@ -260,7 +260,7 @@ func TestRenderDirectoryListingFancyindexClasses(t *testing.T) {
 		"file.txt": "content",
 	})
 
-	html := renderListing(t, fs, "/", sortByNameAsc, BrowserListing{ShowPath: true})
+	html := renderListing(t, fs, "/", sortByNameAsc, Listing{ShowPath: true})
 
 	if !strings.Contains(html, `<th colspan="2"><a href="?C=N&amp;O=D">File Name ↑</a></th>`) {
 		t.Fatal("expected filename header to span two columns")
@@ -281,7 +281,7 @@ func TestRenderDirectoryListingFancyindexClasses(t *testing.T) {
 		t.Fatal("expected date cell class")
 	}
 	if strings.Contains(html, `td class="name"`) || strings.Contains(html, `a class="link"`) {
-		t.Fatal("expected old browser listing classes to be removed")
+		t.Fatal("expected old listing classes to be removed")
 	}
 }
 

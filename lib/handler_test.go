@@ -1589,7 +1589,7 @@ rules:
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
 
-func TestServerBrowserListingEnabled(t *testing.T) {
+func TestServerListingEnabled(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1601,7 +1601,7 @@ func TestServerBrowserListingEnabled(t *testing.T) {
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
-browserListing:
+listing:
   enabled: true
 `, dir))
 	defer srv.Close()
@@ -1625,7 +1625,7 @@ browserListing:
 	require.Contains(t, bodyStr, `<table id="list">`)
 }
 
-func TestServerBrowserListingHideParentDir(t *testing.T) {
+func TestServerListingHideParentDir(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1635,7 +1635,7 @@ func TestServerBrowserListingHideParentDir(t *testing.T) {
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
-browserListing:
+listing:
   enabled: true
   hide_parent_dir: true
 `, dir))
@@ -1658,7 +1658,7 @@ browserListing:
 	require.Contains(t, bodyStr, `td class="date"`)
 }
 
-func TestServerBrowserListingDisabled(t *testing.T) {
+func TestServerListingDisabled(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1667,7 +1667,7 @@ func TestServerBrowserListingDisabled(t *testing.T) {
 
 	for name, extra := range map[string]string{
 		"Default":  "",
-		"Explicit": "browserListing:\n  enabled: false\n",
+		"Explicit": "listing:\n  enabled: false\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -1686,7 +1686,7 @@ func TestServerBrowserListingDisabled(t *testing.T) {
 	}
 }
 
-func TestServerBrowserListingWithHeader(t *testing.T) {
+func TestServerListingWithHeader(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1698,7 +1698,7 @@ func TestServerBrowserListingWithHeader(t *testing.T) {
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
-browserListing:
+listing:
   enabled: true
   header: %q
   footer: %q
@@ -1714,9 +1714,45 @@ browserListing:
 	bodyStr := string(body)
 
 	require.Contains(t, bodyStr, customHeader)
+	require.NotContains(t, bodyStr, "Index of")
 }
 
-func TestServerBrowserListingWithFooter(t *testing.T) {
+func TestServerListingRedirectsToTrailingSlash(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"subdir/file.txt":     []byte("content"),
+		"evil.com/file.txt":   []byte("content"),
+		"with space/file.txt": []byte("content"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+`, dir))
+	defer srv.Close()
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+
+	for requestPath, location := range map[string]string{
+		"/subdir":         "/subdir/",
+		"/subdir?C=S&O=A": "/subdir/?C=S&O=A",
+		"//evil.com":      "/evil.com/",
+		"/with%20space":   "/with%20space/",
+	} {
+		resp, err := client.Get(srv.URL + requestPath)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, http.StatusMovedPermanently, resp.StatusCode, requestPath)
+		require.Equal(t, location, resp.Header.Get("Location"), requestPath)
+	}
+}
+
+func TestServerListingWithFooter(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1728,7 +1764,7 @@ func TestServerBrowserListingWithFooter(t *testing.T) {
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
-browserListing:
+listing:
   enabled: true
   header: %q
   footer: %q
@@ -1746,7 +1782,7 @@ browserListing:
 	require.Contains(t, bodyStr, customFooter)
 }
 
-func TestServerBrowserListingSortQuery(t *testing.T) {
+func TestServerListingSortQuery(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1758,7 +1794,7 @@ func TestServerBrowserListingSortQuery(t *testing.T) {
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
-browserListing:
+listing:
   enabled: true
 `, dir))
 	defer srv.Close()
@@ -1779,7 +1815,7 @@ browserListing:
 	require.True(t, largePos < mediumPos && mediumPos < smallPos)
 }
 
-func TestServerBrowserListingHidesForbiddenEntries(t *testing.T) {
+func TestServerListingHidesForbiddenEntries(t *testing.T) {
 	t.Parallel()
 
 	dir := makeTestDirectory(t, map[string][]byte{
@@ -1791,7 +1827,7 @@ func TestServerBrowserListingHidesForbiddenEntries(t *testing.T) {
 	srv := makeTestServer(t, fmt.Sprintf(`
 directory: %s
 permissions: R
-browserListing:
+listing:
   enabled: true
 rules:
   - path: /secret/

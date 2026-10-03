@@ -3,6 +3,8 @@ package lib
 import (
 	"net/http"
 	"os"
+	"path"
+	"strings"
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
@@ -16,11 +18,11 @@ type handlerUser struct {
 }
 
 type Handler struct {
-	noPassword     bool
-	behindProxy    bool
-	browserListing BrowserListing
-	user           *handlerUser
-	users          map[string]*handlerUser
+	noPassword  bool
+	behindProxy bool
+	listing     Listing
+	user        *handlerUser
+	users       map[string]*handlerUser
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
@@ -32,11 +34,11 @@ func NewHandler(c *Config) (http.Handler, error) {
 	}
 
 	h := &Handler{
-		noPassword:     c.NoPassword,
-		behindProxy:    c.BehindProxy,
-		browserListing: c.BrowserListing,
-		user:           newHandlerUser(User{UserPermissions: c.UserPermissions}, c, ls, logFunc),
-		users:          map[string]*handlerUser{},
+		noPassword:  c.NoPassword,
+		behindProxy: c.BehindProxy,
+		listing:     c.Listing,
+		user:        newHandlerUser(User{UserPermissions: c.UserPermissions}, c, ls, logFunc),
+		users:       map[string]*handlerUser{},
 	}
 
 	for _, u := range c.Users {
@@ -205,18 +207,30 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 		collection resources.
 	//
 	// GET (or HEAD), when applied to collection, will serve directory listing
-	// if browser listing is enabled, otherwise return same as PROPFIND method.
+	// if listing is enabled, otherwise return same as PROPFIND method.
 	if r.Method == "GET" || r.Method == "HEAD" {
 		info, err := user.fs.Stat(r.Context(), req.path)
 		if err == nil && info.IsDir() {
-			if h.browserListing.Enabled {
+			if h.listing.Enabled {
+				// The listing uses relative links, which only resolve correctly
+				// under a trailing slash. The target is relative so http.Redirect
+				// cleans it, keeping a path such as "//host" from leaving the site.
+				if !strings.HasSuffix(r.URL.Path, "/") {
+					target := "./" + path.Base(r.URL.EscapedPath()) + "/"
+					if r.URL.RawQuery != "" {
+						target += "?" + r.URL.RawQuery
+					}
+					http.Redirect(w, r, target, http.StatusMovedPermanently)
+					return
+				}
+
 				sorting := ParseListingSortQuery(r.URL.Query())
-				html, err := RenderDirectoryListing(
+				html, err := RenderListing(
 					r.Context(),
 					user.fs,
 					req.path,
 					sorting,
-					h.browserListing,
+					h.listing,
 				)
 				if err != nil {
 					lZap.Error("failed to render directory listing", zap.Error(err))
