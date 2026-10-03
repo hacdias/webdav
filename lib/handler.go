@@ -3,6 +3,8 @@ package lib
 import (
 	"net/http"
 	"os"
+	"path"
+	"strings"
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
@@ -18,6 +20,7 @@ type handlerUser struct {
 type Handler struct {
 	noPassword  bool
 	behindProxy bool
+	listing     Listing
 	user        *handlerUser
 	users       map[string]*handlerUser
 }
@@ -33,6 +36,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
+		listing:     c.Listing,
 		user:        newHandlerUser(User{UserPermissions: c.UserPermissions}, c, ls, logFunc),
 		users:       map[string]*handlerUser{},
 	}
@@ -247,10 +251,51 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 		message body, the semantics of HEAD are unmodified when applied to
 	// 		collection resources.
 	//
-	// GET (or HEAD), when applied to collection, will return the same as PROPFIND method.
+	// GET (or HEAD), when applied to collection, will serve directory listing
+	// if listing is enabled, otherwise return same as PROPFIND method.
 	if r.Method == "GET" || r.Method == "HEAD" {
 		info, err := user.fs.Stat(r.Context(), req.path)
 		if err == nil && info.IsDir() {
+			if h.listing.Enabled {
+				// The listing uses relative links, which only resolve correctly
+				// under a trailing slash. The target is relative so http.Redirect
+				// cleans it, keeping a path such as "//host" from leaving the site.
+				if !strings.HasSuffix(r.URL.Path, "/") {
+					target := "./" + path.Base(r.URL.EscapedPath()) + "/"
+					if r.URL.RawQuery != "" {
+						target += "?" + r.URL.RawQuery
+					}
+					http.Redirect(w, r, target, http.StatusMovedPermanently)
+					return
+				}
+
+				sorting := ParseListingSortQuery(r.URL.Query())
+				html, err := RenderListing(
+					r.Context(),
+					user.fs,
+					req.path,
+					sorting,
+					h.listing,
+				)
+				if err != nil {
+					lZap.Error("failed to render directory listing", zap.Error(err))
+					http.Error(w, "Failed to render directory listing", http.StatusInternalServerError)
+					return
+				}
+
+				w.Header().Set("Content-Type", "text/html; charset=utf-8")
+				if r.Method == "GET" {
+					w.WriteHeader(http.StatusOK)
+					if _, err := w.Write([]byte(html)); err != nil {
+						lZap.Error("failed to write directory listing", zap.Error(err))
+					}
+				} else {
+					// HEAD: write headers only
+					w.WriteHeader(http.StatusOK)
+				}
+				return
+			}
+
 			r.Method = "PROPFIND"
 
 			if r.Header.Get("Depth") == "" {

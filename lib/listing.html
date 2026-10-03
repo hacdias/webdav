@@ -1,0 +1,24 @@
+{{- if .Header}}{{.Header}}{{else}}<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Index of {{.Path}}</title>
+<style>
+body { font-family: sans-serif; margin: 1rem; }
+table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+th, td { padding: 0.2rem 0.6rem; text-align: left; white-space: nowrap; }
+td.link { width: 100%; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; }
+</style>
+</head>
+<body>{{end}}
+{{- if and .ShowPath (not .Header)}}<h1>Index of {{.Path}}</h1>{{end}}
+<table id="list"><thead><tr><th colspan="2"><a href="{{.NameColumn.Href}}">{{.NameColumn.Label}}</a></th><th class="size"><a href="{{.SizeColumn.Href}}">{{.SizeColumn.Label}}</a></th><th class="date"><a href="{{.DateColumn.Href}}">{{.DateColumn.Label}}</a></th></tr></thead>
+<tbody>
+{{- if .ShowParent}}<tr><td colspan="2" class="link"><a href="../" title="..">../</a></td><td class="size">-</td><td class="date">-</td></tr>
+{{end}}
+{{- range .Entries}}<tr><td colspan="2" class="link"><a href="{{.Href}}" title="{{.Name}}">{{.Name}}{{if .IsDir}}/{{end}}</a></td><td class="size">{{.Size}}</td><td class="date">{{.ModTime}}</td></tr>
+{{end -}}
+</tbody>
+</table>
+{{- if .Footer}}{{.Footer}}{{else}}</body>
+</html>{{end -}}

@@ -75,7 +75,7 @@ For clients that use it, the server also supports partial `PUT` requests with `C
 ## Configuration
 
 The configuration can be provided as a YAML, JSON or TOML file. Below is an example of a YAML configuration file with 
-all the options available, as well as what they mean.
+all the options available, as well as what they mean. Top-level keys use camelCase and keys nested inside a section use snake_case.
 
 ```yaml
 address: 0.0.0.0
@@ -190,6 +190,23 @@ cors:
     - PROPPATCH
     - PUT
   exposed_headers: []
+
+# HTML Directory Listing configuration
+listing:
+  # Serve an HTML listing on GET requests to a collection, instead of the
+  # PROPFIND response. Sort with ?C=N|M|S (name, modified, size) and ?O=A|D
+  # (ascending, descending). Default is 'false'.
+  enabled: true
+  # Hide the parent directory (../) link. Default is 'false'.
+  hide_parent_dir: false
+  # Show the "Index of <path>" title. Ignored with a custom header. Default is 'true'.
+  show_path: true
+  # Custom HTML replacing the page shell: header up to and including <body>,
+  # footer from </body>. Both must be set, inline or from a file.
+  # header: "<!DOCTYPE html><html><head><title>WebDAV</title></head><body>"
+  # header_file: /etc/webdav/header.html
+  # footer: "</body></html>"
+  # footer_file: /etc/webdav/footer.html
 
 # You define here the list of users.
 # Basic authentication is automatically be configured when users are detected 

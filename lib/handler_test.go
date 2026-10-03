@@ -1761,3 +1761,270 @@ rules:
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusCreated, resp.StatusCode)
 }
+
+func TestServerListingEnabled(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file1.txt":   []byte("content1"),
+		"file2.txt":   []byte("content2"),
+		"subdir/test": []byte("test"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+`, dir))
+	defer srv.Close()
+
+	// Test GET request to root - should return HTML
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, "<!DOCTYPE html>")
+	require.Contains(t, bodyStr, "file1.txt")
+	require.Contains(t, bodyStr, "file2.txt")
+	require.Contains(t, bodyStr, "subdir")
+	require.Contains(t, bodyStr, `<table id="list">`)
+}
+
+func TestServerListingHideParentDir(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"subdir/file.txt": []byte("content"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+  hide_parent_dir: true
+`, dir))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/subdir/")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "text/html; charset=utf-8", resp.Header.Get("Content-Type"))
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.NotContains(t, bodyStr, `href="../"`)
+	require.Contains(t, bodyStr, `td colspan="2" class="link"`)
+	require.Contains(t, bodyStr, `td class="size"`)
+	require.Contains(t, bodyStr, `td class="date"`)
+}
+
+func TestServerListingDisabled(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file1.txt": []byte("content1"),
+	})
+
+	for name, extra := range map[string]string{
+		"Default":  "",
+		"Explicit": "listing:\n  enabled: false\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			srv := makeTestServer(t, fmt.Sprintf("directory: %s\npermissions: R\n%s", dir, extra))
+			defer srv.Close()
+
+			// Test GET request to root - should return 207 Multi-Status (PROPFIND)
+			resp, err := http.Get(srv.URL + "/")
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, http.StatusMultiStatus, resp.StatusCode)
+			require.Contains(t, resp.Header.Get("Content-Type"), "text/xml")
+		})
+	}
+}
+
+func TestServerListingWithHeader(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file.txt": []byte("content"),
+	})
+
+	customHeader := "<!DOCTYPE html><html><head></head><body><h1>Welcome to my WebDAV Server</h1>"
+	customFooter := "</body></html>"
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+  header: %q
+  footer: %q
+`, dir, customHeader, customFooter))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, customHeader)
+	require.NotContains(t, bodyStr, "Index of")
+}
+
+func TestServerListingRedirectsToTrailingSlash(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"subdir/file.txt":     []byte("content"),
+		"evil.com/file.txt":   []byte("content"),
+		"with space/file.txt": []byte("content"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+`, dir))
+	defer srv.Close()
+
+	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error {
+		return http.ErrUseLastResponse
+	}}
+
+	for requestPath, location := range map[string]string{
+		"/subdir":         "/subdir/",
+		"/subdir?C=S&O=A": "/subdir/?C=S&O=A",
+		"//evil.com":      "/evil.com/",
+		"/with%20space":   "/with%20space/",
+	} {
+		resp, err := client.Get(srv.URL + requestPath)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, http.StatusMovedPermanently, resp.StatusCode, requestPath)
+		require.Equal(t, location, resp.Header.Get("Location"), requestPath)
+	}
+}
+
+func TestServerListingWithFooter(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"file.txt": []byte("content"),
+	})
+
+	customHeader := "<!DOCTYPE html><html><head></head><body>"
+	customFooter := "<p>Copyright 2026 - My Company</p></body></html>"
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+  header: %q
+  footer: %q
+`, dir, customHeader, customFooter))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, customFooter)
+}
+
+func TestServerListingSortQuery(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"small.txt":  []byte("1"),
+		"medium.txt": []byte("12345"),
+		"large.txt":  []byte("123456789"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+`, dir))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/?C=S&O=D")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	largePos := strings.Index(bodyStr, "large.txt")
+	mediumPos := strings.Index(bodyStr, "medium.txt")
+	smallPos := strings.Index(bodyStr, "small.txt")
+	require.True(t, largePos >= 0 && mediumPos >= 0 && smallPos >= 0)
+	require.True(t, largePos < mediumPos && mediumPos < smallPos)
+}
+
+func TestServerListingHidesForbiddenEntries(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"public.txt":      []byte("public"),
+		"secret/flag.txt": []byte("flag"),
+		"hidden.txt":      []byte("hidden"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: R
+listing:
+  enabled: true
+rules:
+  - path: /secret/
+    permissions: none
+  - path: /hidden.txt
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	bodyStr := string(body)
+
+	require.Contains(t, bodyStr, "public.txt")
+	require.NotContains(t, bodyStr, "secret")
+	require.NotContains(t, bodyStr, "hidden.txt")
+
+	resp, err = http.Get(srv.URL + "/secret/")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusForbidden, resp.StatusCode)
+}
