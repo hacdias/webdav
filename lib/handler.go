@@ -315,7 +315,14 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Runs the WebDAV.
-	user.handler.ServeHTTP(w, r)
+	handler := user.handler
+	if r.Method == "PROPFIND" && r.Header.Get("Depth") == "1" {
+		handler.FileSystem = &propfindFS{
+			FileSystem: user.fs,
+			infos:      make(map[string]os.FileInfo),
+		}
+	}
+	handler.ServeHTTP(w, r)
 }
 
 // getRequestLogger creates a zap.Logger using the request remote ip.
