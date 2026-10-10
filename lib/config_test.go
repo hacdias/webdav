@@ -579,3 +579,42 @@ users:
 	require.True(t, cfg.Users[0].checkPassword("admin"))
 	require.True(t, cfg.Users[1].checkPassword("basic"))
 }
+
+func TestConfigDuplicateUsernames(t *testing.T) {
+	t.Run("Literal", func(t *testing.T) {
+		t.Parallel()
+
+		writeAndParseConfigWithError(t, `
+users:
+  - username: alice
+    password: one
+  - username: alice
+    password: two
+`, ".yml", `duplicate username "alice"`)
+	})
+
+	t.Run("Environment", func(t *testing.T) {
+		t.Setenv("COLLIDE_USERNAME", "alice")
+
+		writeAndParseConfigWithError(t, `
+users:
+  - username: alice
+    password: one
+  - username: '{env}COLLIDE_USERNAME'
+    password: two
+`, ".yml", `duplicate username "alice"`)
+	})
+
+	t.Run("Case Sensitive", func(t *testing.T) {
+		t.Parallel()
+
+		cfg := writeAndParseConfig(t, `
+users:
+  - username: alice
+    password: one
+  - username: Alice
+    password: two
+`, ".yml")
+		require.Len(t, cfg.Users, 2)
+	})
+}

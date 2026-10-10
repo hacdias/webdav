@@ -251,11 +251,17 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 
+	usernames := map[string]struct{}{}
 	for i := range c.Users {
 		err := c.Users[i].Validate(c.NoPassword)
 		if err != nil {
 			return fmt.Errorf("invalid config: %w", err)
 		}
+
+		if _, ok := usernames[c.Users[i].Username]; ok {
+			return fmt.Errorf("invalid config: duplicate username %q", c.Users[i].Username)
+		}
+		usernames[c.Users[i].Username] = struct{}{}
 	}
 
 	return nil
