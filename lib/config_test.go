@@ -387,6 +387,130 @@ users:
 	require.Equal(t, DirectoryMounts{{Name: filepath.Base(userMulti), Path: userMulti}}, cfg.Users[2].Directories)
 }
 
+func TestConfigUserEnvOverrides(t *testing.T) {
+	t.Setenv("WD_USERS_0_PERMISSIONS", "R")
+	t.Setenv("WD_USERS_1_PERMISSIONS", "none")
+	t.Setenv("WD_USERS_1_RULESBEHAVIOR", "overwrite")
+
+	cfg := writeAndParseConfig(t, `
+directory: /
+permissions: CRUD
+rulesBehavior: append
+rules:
+  - path: /secret
+    permissions: none
+users:
+  - username: inherited
+    password: inherited
+  - username: own
+    password: own
+    permissions: CRUD
+    rules:
+      - path: /mine`, ".yml")
+	require.NoError(t, cfg.Validate())
+
+	require.Equal(t, Permissions{Read: true}, cfg.Users[0].Permissions)
+	require.Equal(t, RulesAppend, cfg.Users[0].RulesBehavior)
+	require.Len(t, cfg.Users[0].Rules, 1)
+	require.Equal(t, "/secret", cfg.Users[0].Rules[0].Path)
+
+	require.Equal(t, Permissions{}, cfg.Users[1].Permissions)
+	require.Equal(t, RulesOverwrite, cfg.Users[1].RulesBehavior)
+	require.Len(t, cfg.Users[1].Rules, 1)
+	require.Equal(t, "/mine", cfg.Users[1].Rules[0].Path)
+}
+
+func TestConfigUserRulesEnvRejected(t *testing.T) {
+	t.Setenv("WD_USERS_0_RULES", "placeholder")
+
+	writeAndParseConfigWithError(t, `
+directory: /
+rules:
+  - path: /secret
+    permissions: none
+users:
+  - username: foo
+    password: bar`, ".yml", "rules cannot be set via environment variables")
+}
+
+func TestConfigUserEnvPermissionsNone(t *testing.T) {
+	t.Setenv("WD_USERS_0_PERMISSIONS", "none")
+
+	cfg := writeAndParseConfig(t, `
+directory: /
+permissions: CRUD
+rules:
+  - path: /secret
+    permissions: none
+users:
+  - username: foo
+    password: bar`, ".yml")
+	require.NoError(t, cfg.Validate())
+
+	require.Equal(t, Permissions{}, cfg.Users[0].Permissions)
+	require.Len(t, cfg.Users[0].Rules, 1)
+	require.Equal(t, "/secret", cfg.Users[0].Rules[0].Path)
+}
+
+func TestConfigUserEnvEmptyInherits(t *testing.T) {
+	t.Setenv("WD_USERS_0_PERMISSIONS", "")
+	t.Setenv("WD_USERS_0_RULESBEHAVIOR", "")
+	t.Setenv("WD_USERS_0_RULES", "")
+
+	cfg := writeAndParseConfig(t, `
+directory: /
+permissions: CRUD
+rulesBehavior: append
+rules:
+  - path: /secret
+    permissions: none
+users:
+  - username: foo
+    password: bar`, ".yml")
+	require.NoError(t, cfg.Validate())
+
+	require.Equal(t, cfg.Permissions, cfg.Users[0].Permissions)
+	require.Equal(t, RulesAppend, cfg.Users[0].RulesBehavior)
+	require.Len(t, cfg.Users[0].Rules, 1)
+	require.Equal(t, "/secret", cfg.Users[0].Rules[0].Path)
+}
+
+func TestConfigUserFileOverrides(t *testing.T) {
+	t.Parallel()
+
+	cfg := writeAndParseConfig(t, `
+directory: /
+permissions: CRUD
+rulesBehavior: append
+rules:
+  - path: /secret
+    permissions: none
+users:
+  - username: none
+    password: none
+    permissions: none
+  - username: overwrite
+    password: overwrite
+    rulesBehavior: overwrite
+    rules:
+      - path: /mine
+  - username: empty
+    password: empty
+    rules:`, ".yml")
+	require.NoError(t, cfg.Validate())
+
+	require.Equal(t, Permissions{}, cfg.Users[0].Permissions)
+	require.Len(t, cfg.Users[0].Rules, 1)
+
+	require.Equal(t, RulesOverwrite, cfg.Users[1].RulesBehavior)
+	require.Len(t, cfg.Users[1].Rules, 1)
+	require.Equal(t, "/mine", cfg.Users[1].Rules[0].Path)
+
+	require.Equal(t, cfg.Permissions, cfg.Users[2].Permissions)
+	require.Len(t, cfg.Users[2].Rules, 1)
+	require.Equal(t, "/secret", cfg.Users[2].Rules[0].Path)
+}
+
 func TestConfigKeys(t *testing.T) {
 	t.Parallel()
 

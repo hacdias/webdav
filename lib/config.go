@@ -142,15 +142,33 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 			return nil, fmt.Errorf("invalid config: user %q: %w", cfg.Users[i].Username, err)
 		}
 
-		if !v.IsSet(fmt.Sprintf("Users.%d.Permissions", i)) {
+		// Viper does not apply environment variables to fields of slice elements
+		// when unmarshaling, so explicitly set values are read back with Get.
+		userPermissionsKey := fmt.Sprintf("Users.%d.Permissions", i)
+		if isExplicitlySet(v, flags, userPermissionsKey) {
+			permissions := Permissions{}
+			err := permissions.UnmarshalText([]byte(v.GetString(userPermissionsKey)))
+			if err != nil {
+				return nil, fmt.Errorf("invalid config: user %q: %w", cfg.Users[i].Username, err)
+			}
+			cfg.Users[i].Permissions = permissions
+		} else {
 			cfg.Users[i].Permissions = cfg.Permissions
 		}
 
-		if !v.IsSet(fmt.Sprintf("Users.%d.RulesBehavior", i)) {
+		userRulesBehaviorKey := fmt.Sprintf("Users.%d.RulesBehavior", i)
+		if isExplicitlySet(v, flags, userRulesBehaviorKey) {
+			cfg.Users[i].RulesBehavior = RulesBehavior(v.GetString(userRulesBehaviorKey))
+		} else {
 			cfg.Users[i].RulesBehavior = cfg.RulesBehavior
 		}
 
-		if v.IsSet(fmt.Sprintf("Users.%d.Rules", i)) {
+		userRulesKey := fmt.Sprintf("Users.%d.Rules", i)
+		if os.Getenv(envKey(userRulesKey)) != "" {
+			return nil, fmt.Errorf("invalid config: user %q: rules cannot be set via environment variables", cfg.Users[i].Username)
+		}
+
+		if isExplicitlySet(v, flags, userRulesKey) {
 			switch cfg.Users[i].RulesBehavior {
 			case RulesOverwrite:
 				// Do nothing
@@ -208,9 +226,12 @@ func isExplicitlySet(v *viper.Viper, flags *pflag.FlagSet, key string) bool {
 		return true
 	}
 
-	envKey := "WD_" + strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
-	value, ok := os.LookupEnv(envKey)
+	value, ok := os.LookupEnv(envKey(key))
 	return ok && value != ""
+}
+
+func envKey(key string) string {
+	return "WD_" + strings.ToUpper(strings.ReplaceAll(key, ".", "_"))
 }
 
 func (c *Config) Validate() error {
