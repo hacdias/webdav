@@ -70,6 +70,15 @@ func (l *lockSystem) Confirm(now time.Time, name0, name1 string, conditions ...w
 			return nil, err
 		}
 	}
+	// When both source (name0) and destination (name1) are provided — as in
+	// a MOVE — the If header conditions typically only cover the source
+	// resource. The default MemLS.Confirm requires BOTH names to match the
+	// same conditions, which fails because the destination has no matching
+	// lock. Pass only the source when it is present so that only the source
+	// lock is verified against the If conditions.
+	if name0 != "" {
+		name1 = ""
+	}
 
 	return l.LockSystem.Confirm(now, name0, name1, conditions...)
 }
