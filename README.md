@@ -254,6 +254,16 @@ users:
 # noPassword: true
 ```
 
+### Configuration reloading
+
+The configuration file is watched, and changes are applied without a restart:
+
+- Users, rules, permissions, directories, prefix, CORS, listing and logging are reloaded. Locks and in-flight requests are kept.
+- Address, port, TLS, certificate and key changes need a restart; a warning is logged.
+- Invalid or empty configurations are logged and ignored. Save the file atomically, as most editors do, so a partial file isn't applied.
+- The file isn't watched when it is inside, or reachable from, a served directory. Keep it outside of them.
+- With Docker, mount the config's directory rather than the single file, so that saves on the host are seen.
+
 ### Rules
 
 Rules are matched against the request path after dot segments have been resolved, so `/public/../secret/file` is matched as `/secret/file`. The last rule that matches wins.

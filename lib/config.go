@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -27,6 +28,8 @@ const (
 var errDirectoryConflict = errors.New("directory and directories cannot both be defined")
 
 type Config struct {
+	file            string
+	fingerprint     os.FileInfo
 	UserPermissions `mapstructure:",squash"`
 	Debug           bool
 	Address         string
@@ -44,7 +47,15 @@ type Config struct {
 	Users           []User
 }
 
+// ConfigFile returns the configuration file read by ParseConfig, if any.
+func (c *Config) ConfigFile() string { return c.file }
+
 func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
+	return parseConfig(filename, flags, nil)
+}
+
+// parseConfig parses content as the file filename when content is not nil.
+func parseConfig(filename string, flags *pflag.FlagSet, content []byte) (*Config, error) {
 	v := viper.NewWithOptions(viper.ExperimentalBindStruct())
 
 	// Configure flags bindings
@@ -64,6 +75,10 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 
 	v.SetConfigName("config")
 	if filename != "" {
+		// Absolute, so the watcher can find the config file's directory.
+		if absolute, err := filepath.Abs(filename); err == nil {
+			filename = absolute
+		}
 		v.SetConfigFile(filename)
 	}
 
@@ -101,15 +116,30 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Listing.Footer", "")
 	v.SetDefault("Listing.Footer_File", "")
 
-	// Read and unmarshal configuration
-	err := v.ReadInConfig()
+	// Read and unmarshal configuration. The watcher's baseline is taken before
+	// reading, so that a change made while reading is still picked up.
+	var fingerprint os.FileInfo
+	if content == nil && filename != "" {
+		fingerprint, _ = configFingerprint(filename)
+	}
+	var err error
+	if content != nil {
+		v.SetConfigType(strings.TrimPrefix(filepath.Ext(filename), "."))
+		err = v.ReadConfig(bytes.NewReader(content))
+	} else {
+		err = v.ReadInConfig()
+	}
 	if err != nil {
 		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			return nil, err
 		}
 	}
 
-	cfg := &Config{}
+	cfg := &Config{file: v.ConfigFileUsed(), fingerprint: fingerprint}
+	if content == nil && fingerprint == nil && cfg.file != "" {
+		// Found in the search paths, so only known after reading.
+		cfg.fingerprint, _ = configFingerprint(cfg.file)
+	}
 	err = v.Unmarshal(cfg, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
 		directoryMountsDecodeHook(),
 		mapstructure.StringToTimeDurationHookFunc(),

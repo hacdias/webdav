@@ -5,6 +5,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync/atomic"
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
@@ -26,8 +27,37 @@ type Handler struct {
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
-	ls := webdav.NewMemLS()
+	return newHandler(c, webdav.NewMemLS())
+}
 
+// ReloadableHandler serves requests with the handler built from the latest
+// configuration. All handlers share one lock system, so locks survive reloads.
+type ReloadableHandler struct {
+	ls      webdav.LockSystem
+	handler atomic.Pointer[http.Handler]
+}
+
+func NewReloadableHandler(c *Config) (*ReloadableHandler, error) {
+	h := &ReloadableHandler{ls: webdav.NewMemLS()}
+	return h, h.Reload(c)
+}
+
+// Reload builds a handler from c. On error, the previous handler is kept.
+func (h *ReloadableHandler) Reload(c *Config) error {
+	next, err := newHandler(c, h.ls)
+	if err == nil {
+		h.handler.Store(&next)
+	}
+	return err
+}
+
+// ServeHTTP serves r with the current handler. Requests in flight during a
+// reload finish on the handler they started with.
+func (h *ReloadableHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	(*h.handler.Load()).ServeHTTP(w, r)
+}
+
+func newHandler(c *Config, ls webdav.LockSystem) (http.Handler, error) {
 	logFunc := func(r *http.Request, err error) {
 		lZap := getRequestLogger(r, c.BehindProxy)
 		lZap.Debug("handle webdav request", zap.String("method", r.Method), zap.String("path", r.URL.Path), zap.Error(err))
