@@ -2156,3 +2156,24 @@ rules:
 	require.NoError(t, resp.Body.Close())
 	require.Equal(t, http.StatusForbidden, resp.StatusCode)
 }
+
+func TestGetRealRemoteIP(t *testing.T) {
+	t.Parallel()
+
+	ip := func(behindProxy bool, forwarded ...string) string {
+		r := httptest.NewRequest("GET", "/", nil)
+		r.RemoteAddr = "10.0.0.1:1234"
+		for _, v := range forwarded {
+			r.Header.Add("X-Forwarded-For", v)
+		}
+		return getRealRemoteIP(r, behindProxy)
+	}
+
+	require.Equal(t, "10.0.0.1:1234", ip(false, "6.6.6.6"))
+	require.Equal(t, "10.0.0.1:1234", ip(true))
+	require.Equal(t, "1.2.3.4", ip(true, "1.2.3.4"))
+
+	// Anything before the proxy's own entry came from the client.
+	require.Equal(t, "1.2.3.4", ip(true, "6.6.6.6, 1.2.3.4"))
+	require.Equal(t, "1.2.3.4", ip(true, "6.6.6.6", "1.2.3.4"))
+}

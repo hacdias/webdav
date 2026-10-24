@@ -345,9 +345,15 @@ func getRequestLogger(r *http.Request, behindProxy bool) *zap.Logger {
 }
 
 // getRealRemoteIP retrieves the client's actual IP address, considering reverse proxies.
+// Only the last X-Forwarded-For entry, which the proxy appended, is trusted.
 func getRealRemoteIP(r *http.Request, behindProxy bool) string {
-	if behindProxy {
-		if ip := r.Header.Get("X-Forwarded-For"); ip != "" {
+	if values := r.Header.Values("X-Forwarded-For"); behindProxy && len(values) > 0 {
+		last := values[len(values)-1]
+		if i := strings.LastIndexByte(last, ','); i >= 0 {
+			last = last[i+1:]
+		}
+
+		if ip := strings.TrimSpace(last); ip != "" {
 			return ip
 		}
 	}
