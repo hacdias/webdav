@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"crypto/subtle"
 	"errors"
 	"fmt"
 	"os"
@@ -21,7 +22,7 @@ func (u User) checkPassword(input string) bool {
 		return bcrypt.CompareHashAndPassword([]byte(savedPassword), []byte(input)) == nil
 	}
 
-	return u.Password == input
+	return subtle.ConstantTimeCompare([]byte(u.Password), []byte(input)) == 1
 }
 
 func (u *User) Validate(noPassword bool) error {
