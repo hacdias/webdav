@@ -1805,6 +1805,61 @@ users:
 	require.Equal(t, http.StatusCreated, lock("writer", "/new.txt"))
 }
 
+// TestServerMoveSubmittingSourceToken covers a MOVE that submits only the
+// source's lock token, as Windows does when saving, which failed with 412.
+func TestServerMoveSubmittingSourceToken(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"original.txt": []byte("old"),
+		"tmp.txt":      []byte("new"),
+	})
+
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: CRUD")
+	defer srv.Close()
+
+	lock := func(path string) string {
+		t.Helper()
+		code, body := doRequest(t, "LOCK", srv.URL+path, "", "", map[string]string{"Depth": "0"}, exclusiveWriteLock)
+		require.Equal(t, http.StatusOK, code)
+		_, token, _ := strings.Cut(body, "<D:locktoken><D:href>")
+		token, _, _ = strings.Cut(token, "</D:href>")
+		return token
+	}
+
+	move := func(token string) int {
+		t.Helper()
+		code, _ := doRequest(t, "MOVE", srv.URL+"/tmp.txt", "", "", map[string]string{
+			"Destination": srv.URL + "/original.txt",
+			"Overwrite":   "T",
+			"If":          "(<" + token + ">)",
+		}, "")
+		return code
+	}
+
+	source := lock("/tmp.txt")
+
+	// A destination locked by someone else still refuses it.
+	other := lock("/original.txt")
+	require.Equal(t, http.StatusPreconditionFailed, move(source))
+
+	data, err := os.ReadFile(filepath.Join(dir, "original.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "old", string(data))
+
+	code, _ := doRequest(t, "UNLOCK", srv.URL+"/original.txt", "", "", map[string]string{"Lock-Token": "<" + other + ">"}, "")
+	require.Equal(t, http.StatusNoContent, code)
+
+	require.Equal(t, http.StatusNoContent, move(source))
+
+	data, err = os.ReadFile(filepath.Join(dir, "original.txt"))
+	require.NoError(t, err)
+	require.Equal(t, "new", string(data))
+
+	// The destination is not left locked.
+	lock("/original.txt")
+}
+
 // TestServerRulesCaseInsensitiveFilesystem covers a rule being evaded by asking
 // for a differently cased spelling of the same file.
 func TestServerRulesCaseInsensitiveFilesystem(t *testing.T) {
