@@ -10,6 +10,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/coreos/go-systemd/v22/activation"
 	"github.com/hacdias/webdav/v5/lib"
@@ -81,7 +82,12 @@ set WD_CERT.`,
 			return err
 		}
 
-		server := &http.Server{Handler: handler}
+		// No read or write timeouts, which would cut off large transfers.
+		server := &http.Server{
+			Handler:           handler,
+			ReadHeaderTimeout: 30 * time.Second,
+			IdleTimeout:       5 * time.Minute,
+		}
 
 		// Trap exiting signals
 		quit := make(chan os.Signal, 1)
