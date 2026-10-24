@@ -45,6 +45,14 @@ func NewHandler(c *Config) (http.Handler, error) {
 		h.users[u.Username] = newHandlerUser(u, c, ls, logFunc)
 	}
 
+	if len(c.Users) == 0 {
+		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
+	}
+
+	if c.NoPassword {
+		zap.L().Warn("unprotected config: password check is disabled, only intended when delegating authentication to another service")
+	}
+
 	if c.CORS.Enabled {
 		return cors.New(cors.Options{
 			AllowCredentials:    c.CORS.Credentials,
@@ -55,14 +63,6 @@ func NewHandler(c *Config) (http.Handler, error) {
 			ExposedHeaders:      c.CORS.ExposedHeaders,
 			OptionsPassthrough:  false,
 		}).Handler(h), nil
-	}
-
-	if len(c.Users) == 0 {
-		zap.L().Warn("unprotected config: no users have been set, so no authentication will be used")
-	}
-
-	if c.NoPassword {
-		zap.L().Warn("unprotected config: password check is disabled, only intended when delegating authentication to another service")
 	}
 
 	return h, nil
