@@ -268,6 +268,8 @@ Overwriting a destination is authorized for what it destroys. A `COPY` or `MOVE`
 
 Rules follow the case sensitivity of the file system, which each served directory is probed for at startup. Where names are case-insensitive, as on APFS and NTFS, `path: /secret/` also covers `/SECRET/`, a `regex` is matched against the folded path as well as the path as written, and Unicode normal forms count as one name. Elsewhere rules are matched exactly, since `/secret` and `/SECRET` are then different directories.
 
+On Windows, a request for a name that Windows would open as a different file is refused with `400 Bad Request`, since a rule written for the real name would not cover it. That is a name containing `\` or `:`, ending in `.` or a space, a device name such as `CON`, or one shaped like an 8.3 short name such as `SECRET~1` or `REPORT~1.TXT`. Files whose real names look like that cannot be reached on Windows. Short names also resolve on some file systems elsewhere, such as FAT32 drives on Linux and Windows folders bind-mounted into Docker Desktop: don't rely on rules there, or disable 8.3 names on the volume with `fsutil 8dot3name set`.
+
 ### CORS
 
 The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `allow_private_network` to `true` to allow Private-Network-Access preflight requests. Setting `credentials` to `true` will allow you to:

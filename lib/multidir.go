@@ -213,6 +213,12 @@ func (m multiDir) Stat(ctx context.Context, name string) (os.FileInfo, error) {
 }
 
 func (m multiDir) resolve(name string) (DirectoryMount, string, error) {
+	// The same guard as [webdav.Dir].
+	if filepath.Separator != '/' && strings.ContainsRune(name, filepath.Separator) ||
+		strings.Contains(name, "\x00") {
+		return DirectoryMount{}, "", os.ErrNotExist
+	}
+
 	name = cleanName(name)
 	if name == "/" {
 		return DirectoryMount{}, "", os.ErrInvalid

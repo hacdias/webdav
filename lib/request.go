@@ -5,6 +5,10 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"path/filepath"
+	"regexp"
+	"runtime"
+	"slices"
 	"strings"
 )
 
@@ -37,6 +41,36 @@ func isCollectionPath(p string) bool {
 	return strings.HasSuffix(p, "/") || strings.HasSuffix(p, "/.") || strings.HasSuffix(p, "/..")
 }
 
+// localPath reports whether p names the file the rules see. Some operating
+// systems rewrite names before opening them, so a rule written for the real
+// name would not cover the request. Those are refused rather than resolved.
+func localPath(p string) bool {
+	name := strings.Trim(p, "/")
+	if name == "" || runtime.GOOS != "windows" {
+		return true
+	}
+
+	// Rejects "\", ":" (alternate data streams), NUL, device names such as
+	// "CON", and invalid UTF-8, which is converted to UTF-16 lossily.
+	if _, err := filepath.Localize(name); err != nil {
+		return false
+	}
+
+	return !slices.ContainsFunc(strings.Split(name, "/"), windowsAlias)
+}
+
+// shortName matches the 8.3 names Windows generates for long ones, such as
+// "SUPERS~1" or "CREDEN~1.TXT".
+var shortName = regexp.MustCompile(`^[^.]*~[0-9]+(\.|$)`)
+
+// windowsAlias reports whether Windows opens segment under another name:
+// trailing dots and spaces are stripped, and a short name opens the long one.
+func windowsAlias(segment string) bool {
+	return strings.HasSuffix(segment, ".") ||
+		strings.HasSuffix(segment, " ") ||
+		shortName.MatchString(segment)
+}
+
 type request struct {
 	method      string
 	path        string
@@ -67,6 +101,9 @@ func newRequest(r *http.Request, prefix string) (*request, error) {
 		}
 
 		ctx.destination = cleanPath(destination)
+		if !localPath(ctx.destination) {
+			return nil, errors.New("invalid destination")
+		}
 	}
 
 	path := r.URL.Path
@@ -79,6 +116,9 @@ func newRequest(r *http.Request, prefix string) (*request, error) {
 	}
 
 	ctx.path = cleanPath(path)
+	if !localPath(ctx.path) {
+		return nil, errors.New("invalid path")
+	}
 
 	return ctx, nil
 }

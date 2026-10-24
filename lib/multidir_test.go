@@ -62,6 +62,26 @@ func TestRenameAcrossMountPreservesSymlink(t *testing.T) {
 	require.Equal(t, "file.txt", target)
 }
 
+func TestMultiDirRenameBackslash(t *testing.T) {
+	if runtime.GOOS != "windows" {
+		t.Skip("backslash is a separator only on Windows")
+	}
+
+	root := makeTestDirectory(t, map[string][]byte{
+		"outside.txt": []byte("outside"),
+		"alpha":       nil,
+		"beta":        nil,
+	})
+	m := multiDir{mounts: DirectoryMounts{
+		{Name: "alpha", Path: filepath.Join(root, "alpha")},
+		{Name: "beta", Path: filepath.Join(root, "beta")},
+	}}
+
+	err := m.Rename(t.Context(), `/alpha/x\..\..\outside.txt`, "/beta/stolen.txt")
+	require.ErrorIs(t, err, os.ErrNotExist)
+	require.FileExists(t, filepath.Join(root, "outside.txt"))
+}
+
 func TestIsCrossDeviceError(t *testing.T) {
 	err := syscall.EXDEV
 	if runtime.GOOS == "windows" {

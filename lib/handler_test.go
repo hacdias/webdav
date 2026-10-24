@@ -951,6 +951,49 @@ rules:
 	require.ErrorContains(t, err, "403")
 }
 
+func TestServerMultiDirectoriesBackslash(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS != "windows" {
+		t.Skip("backslash is a separator only on Windows")
+	}
+
+	root := makeTestDirectory(t, map[string][]byte{
+		"outside.txt":    []byte("outside"),
+		"alpha/mine.txt": []byte("mine"),
+		"beta":           nil,
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+permissions: CRUD
+directories:
+  - alpha: %s
+  - beta: %s
+`, filepath.Join(root, "alpha"), filepath.Join(root, "beta")))
+	defer srv.Close()
+
+	move := func(source, destination string) int {
+		req, err := http.NewRequest("MOVE", srv.URL+source, nil)
+		require.NoError(t, err)
+		req.Header.Set("Destination", destination)
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		return resp.StatusCode
+	}
+
+	// Out of every mount, and into one.
+	require.Equal(t, http.StatusBadRequest, move("/alpha/x%5C..%5C..%5Coutside.txt", "/beta/stolen.txt"))
+	require.FileExists(t, filepath.Join(root, "outside.txt"))
+	require.NoFileExists(t, filepath.Join(root, "beta", "stolen.txt"))
+
+	// Into a mount, and out of every one.
+	require.Equal(t, http.StatusBadRequest, move("/alpha/mine.txt", "/beta/x%5C..%5C..%5Cplanted.txt"))
+	require.FileExists(t, filepath.Join(root, "alpha", "mine.txt"))
+	require.NoFileExists(t, filepath.Join(root, "planted.txt"))
+}
+
 func TestServerMultiDirectoriesPrefix(t *testing.T) {
 	t.Parallel()
 
@@ -1174,6 +1217,70 @@ rules:
 		// access control there is.
 		require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/public/%2e%2e/secret/flag.txt", nil))
 	})
+}
+
+func TestServerRulesWindowsAliases(t *testing.T) {
+	t.Parallel()
+
+	if runtime.GOOS != "windows" {
+		t.Skip("only Windows opens these names as another file")
+	}
+
+	do := func(t *testing.T, method, url string, header map[string]string) int {
+		t.Helper()
+
+		req, err := http.NewRequest(method, url, nil)
+		require.NoError(t, err)
+		for k, v := range header {
+			req.Header.Set(k, v)
+		}
+
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		return resp.StatusCode
+	}
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"public/pub.txt":    []byte("public"),
+		"supersecret/f.txt": []byte("secret"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - path: "/supersecret/"
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	// Each names supersecret or a file in it, which the rule must not miss.
+	aliases := []string{
+		"/SUPERS~1/f.txt",
+		"/supersecret./f.txt",
+		"/supersecret%20",
+		"/supersecret::$INDEX_ALLOCATION/f.txt",
+		"/public%5C..%5Csupersecret/f.txt",
+		"/con",
+	}
+
+	for _, alias := range aliases {
+		for _, method := range []string{"GET", "PUT", "DELETE", "PROPFIND"} {
+			require.Equal(t, http.StatusBadRequest, do(t, method, srv.URL+alias, nil), method+" "+alias)
+		}
+
+		code := do(t, "MOVE", srv.URL+"/public/pub.txt", map[string]string{
+			"Destination": alias,
+			"Overwrite":   "T",
+		})
+		require.Equal(t, http.StatusBadRequest, code, "MOVE to "+alias)
+	}
+
+	require.FileExists(t, filepath.Join(dir, "supersecret", "f.txt"))
+	require.FileExists(t, filepath.Join(dir, "public", "pub.txt"))
+	require.Equal(t, http.StatusForbidden, do(t, "GET", srv.URL+"/supersecret/f.txt", nil))
+	require.Equal(t, http.StatusOK, do(t, "GET", srv.URL+"/public/pub.txt", nil))
 }
 
 func TestServerRulesBareCollection(t *testing.T) {
