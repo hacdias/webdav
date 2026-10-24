@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"errors"
 	"path"
 	"path/filepath"
 	"time"
@@ -71,7 +72,28 @@ func (l *lockSystem) Confirm(now time.Time, name0, name1 string, conditions ...w
 		}
 	}
 
-	return l.LockSystem.Confirm(now, name0, name1, conditions...)
+	release, err = l.LockSystem.Confirm(now, name0, name1, conditions...)
+	if !errors.Is(err, webdav.ErrConfirmationFailed) || name0 == "" || name1 == "" {
+		return release, err
+	}
+
+	// A MOVE may only submit the source's token: hold an unlocked destination
+	// as [webdav.Handler] does without an If header.
+	releaseSource, err := l.LockSystem.Confirm(now, name0, "", conditions...)
+	if err != nil {
+		return nil, err
+	}
+
+	token, err := l.LockSystem.Create(now, webdav.LockDetails{Root: name1, Duration: -1, ZeroDepth: true})
+	if err != nil {
+		releaseSource()
+		return nil, webdav.ErrConfirmationFailed
+	}
+
+	return func() {
+		_ = l.Unlock(now, token)
+		releaseSource()
+	}, nil
 }
 
 func (l *lockSystem) Create(now time.Time, details webdav.LockDetails) (token string, err error) {
