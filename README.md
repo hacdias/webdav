@@ -96,8 +96,8 @@ debug: false
 noSniff: false
 
 # Whether the server runs behind a trusted proxy or not. When this is true,
-# the header X-Forwarded-For will be used for logging the remote addresses
-# of logging attempts (if available).
+# the last entry of the X-Forwarded-For header, which the proxy appends, is
+# logged as the remote address (if available).
 behindProxy: false
 
 # The directory that will be able to be accessed by the users when connecting.
@@ -240,7 +240,7 @@ users:
         permissions: CRUD
       # With this rule, the user CAN read and update all files ending with .js.
       # It uses a regular expression.
-      - regex: "^.+.js$"
+      - regex: '^.+\.js$'
         permissions: RU
   # Example user for android SeedVault backuping
   - username: android
@@ -394,9 +394,9 @@ Create a new filter rule under `filter.d/webdav.conf`:
 before = common.conf
 
 [Definition]
-# Failregex to match "invalid password" and extract remote_address only
-failregex = ^.*invalid password\s*\{.*"remote_address":\s*"<HOST>:\d+"\s*\}
-            ^.*invalid username\s*\{.*"remote_address":\s*"<HOST>:\d+"\s*\}
+# Failregex to match failed logins and extract remote_address only. With
+# behindProxy, the address is logged without a port.
+failregex = ^.*invalid (?:password|username)\s*\{.*"remote_address":\s*"<HOST>(?::\d+)?"
 
 ignoreregex =
 ```
