@@ -1533,6 +1533,24 @@ rules:
 	code, _ = doRequest(t, "DELETE", srv.URL+"/secret", "", "", nil, "")
 	require.Equal(t, http.StatusForbidden, code)
 
+	// So does a LOCK, which would reserve the denied descendant against every
+	// other writer. Without a Depth header it defaults to infinity.
+	for _, depth := range []string{"", "infinity"} {
+		code, _ = doRequest(t, "LOCK", srv.URL+"/secret", "", "", map[string]string{"Depth": depth}, exclusiveWriteLock)
+		require.Equal(t, http.StatusForbidden, code, depth)
+	}
+
+	code, body = doRequest(t, "LOCK", srv.URL+"/secret", "", "", map[string]string{"Depth": "0"}, exclusiveWriteLock)
+	require.Equal(t, http.StatusOK, code)
+
+	// A refresh has no body and no Depth, and keeps the scope the lock has.
+	_, token, _ := strings.Cut(body, "<D:locktoken><D:href>")
+	token, _, _ = strings.Cut(token, "</D:href>")
+	require.NotEmpty(t, token)
+
+	code, _ = doRequest(t, "LOCK", srv.URL+"/secret", "", "", map[string]string{"If": "(<" + token + ">)"}, "")
+	require.Equal(t, http.StatusOK, code)
+
 	require.FileExists(t, filepath.Join(dir, "secret", "flag.txt"))
 }
 
@@ -1564,6 +1582,9 @@ rules:
 	require.Equal(t, http.StatusNotFound, code)
 
 	code, _ = doRequest(t, "DELETE", srv.URL+"/alpha/secret", "", "", nil, "")
+	require.Equal(t, http.StatusForbidden, code)
+
+	code, _ = doRequest(t, "LOCK", srv.URL+"/", "", "", nil, exclusiveWriteLock)
 	require.Equal(t, http.StatusForbidden, code)
 
 	require.FileExists(t, filepath.Join(dirA, "secret", "flag.txt"))

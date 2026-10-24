@@ -176,7 +176,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// MOVE and DELETE act on a whole source subtree in one call, so every
 	// descendant needs authorizing here. Reading COPY and PROPFIND out of the
 	// source goes through permFS instead.
-	if r.Method == "MOVE" || r.Method == "DELETE" {
+	//
+	// A LOCK can cover a subtree too. Excerpt from RFC4918, section 9.10.3:
+	//
+	//		If the Depth header is set to infinity, then the resource specified
+	//		in the Request-URI along with all its members, all the way down the
+	//		hierarchy, are to be locked.
+	//
+	//		If no Depth header is submitted on a LOCK request, then the request
+	//		MUST act as if a "Depth:infinity" had been submitted.
+	//
+	// A refresh keeps the scope the lock already has. From section 9.10.2:
+	//
+	//		This request MUST NOT have a body [...]. A server MUST ignore the
+	//		Depth header on a LOCK refresh.
+	//
+	// Section 9.10.3 also asks for a Multi-Status naming the member that failed,
+	// which would disclose a path the rules hide, so this answers 403.
+	if r.Method == "MOVE" || r.Method == "DELETE" ||
+		(r.Method == "LOCK" && r.Header.Get("Depth") != "0" && r.ContentLength != 0) {
 		ok, err := user.fs.allowedThroughout(r.Context(), req.path, func(p Permissions) bool {
 			return p.Allowed(req, fileExists)
 		})
