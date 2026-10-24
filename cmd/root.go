@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reflect"
 	"strings"
 	"syscall"
 
@@ -65,7 +66,7 @@ set WD_CERT.`,
 		zap.ReplaceGlobals(logger)
 
 		// Create HTTP handler from the config
-		handler, err := lib.NewHandler(cfg)
+		handler, err := lib.NewReloadableHandler(cfg)
 		if err != nil {
 			return err
 		}
@@ -103,10 +104,40 @@ set WD_CERT.`,
 			quit <- os.Interrupt
 		}()
 
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-		signal := <-quit
+		applied := cfg
+		stop := lib.WatchConfig(cfg, flags, func(next *lib.Config, err error) {
+			var logger *zap.Logger
+			if err == nil && (next.Debug != applied.Debug || !reflect.DeepEqual(next.Log, applied.Log)) {
+				logger, err = next.GetLogger()
+			}
+			if err == nil {
+				err = handler.Reload(next)
+			}
+			if err != nil {
+				zap.L().Error("failed to reload config, keeping the previous one", zap.Error(err))
+				return
+			}
+			if logger != nil {
+				previous := zap.L()
+				zap.ReplaceGlobals(logger)
+				// zap has no way to close the previous output; a log file stays open.
+				_ = previous.Sync()
+			}
+			if next.Address != cfg.Address || next.Port != cfg.Port || next.TLS != cfg.TLS ||
+				(cfg.TLS && (next.Cert != cfg.Cert || next.Key != cfg.Key)) {
+				zap.L().Warn("listener settings changed, restart to apply them")
+			}
+			applied = next
+			zap.L().Info("config reloaded")
+		})
+		defer stop()
 
-		zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+		select {
+		case signal := <-quit:
+			zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
+		case <-cmd.Context().Done():
+		}
 		_ = server.Shutdown(context.Background())
 
 		return nil
