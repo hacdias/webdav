@@ -14,9 +14,7 @@ import (
 // server behind a CORS configuration used to start without any warning.
 func TestNewHandlerWarnsWhenUnprotectedWithCORS(t *testing.T) {
 	core, logs := observer.New(zap.WarnLevel)
-	old := zap.L()
-	zap.ReplaceGlobals(zap.New(core))
-	defer zap.ReplaceGlobals(old)
+	defer zap.ReplaceGlobals(zap.New(core))()
 
 	cfg := &Config{CORS: CORS{Enabled: true}}
 	handler, err := NewHandler(cfg)
