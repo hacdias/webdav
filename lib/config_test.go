@@ -697,7 +697,7 @@ users:
     password: basic
 `
 
-	writeAndParseConfigWithError(t, content, ".yml", "username environment variable is empty")
+	writeAndParseConfigWithError(t, content, ".yml", `invalid user "{env}USER1_USERNAME": username environment variable is empty`)
 
 	err := os.Setenv("USER1_USERNAME", "admin")
 	require.NoError(t, err)

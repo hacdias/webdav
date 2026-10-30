@@ -48,10 +48,11 @@ func (u *User) Validate(noPassword bool) error {
 			return fmt.Errorf("invalid user %q: username environment variable not set", u.Username)
 		}
 
-		u.Username = os.Getenv(env)
-		if u.Username == "" {
+		username := os.Getenv(env)
+		if username == "" {
 			return fmt.Errorf("invalid user %q: username environment variable is empty", u.Username)
 		}
+		u.Username = username
 	}
 
 	if u.Password == "" && !noPassword {
