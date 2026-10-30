@@ -7,6 +7,7 @@ import (
 	"path"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
@@ -193,6 +194,21 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !allowed {
 		w.WriteHeader(http.StatusForbidden)
 		return
+	}
+
+	// Upstream acts on the lock a token names wherever it is, so it must cover this path.
+	if token := lockToken(r); token != "" {
+		release, err := user.handler.LockSystem.Confirm(time.Now(), req.path, "", webdav.Condition{Token: token})
+		if err != nil {
+			// What upstream answers when no such lock exists.
+			status := http.StatusConflict
+			if r.Method == "LOCK" {
+				status = http.StatusPreconditionFailed
+			}
+			w.WriteHeader(status)
+			return
+		}
+		release()
 	}
 
 	// MOVE and DELETE act on a whole source subtree in one call, so every
@@ -409,6 +425,19 @@ func getRealRemoteIP(r *http.Request, behindProxy bool) string {
 		}
 	}
 	return r.RemoteAddr
+}
+
+// lockToken returns the token an UNLOCK or a LOCK refresh names, as upstream reads it.
+func lockToken(r *http.Request) string {
+	switch {
+	case r.Method == "UNLOCK":
+		return strings.TrimSuffix(strings.TrimPrefix(r.Header.Get("Lock-Token"), "<"), ">")
+	case r.Method == "LOCK" && r.ContentLength <= 0:
+		if lists, ok := parsePartialIfHeader(r.Header.Get("If")); ok && len(lists) == 1 && len(lists[0].conditions) == 1 {
+			return lists[0].conditions[0].Token
+		}
+	}
+	return ""
 }
 
 type responseWriterNoBody struct {

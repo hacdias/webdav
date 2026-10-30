@@ -1948,6 +1948,61 @@ users:
 	require.Equal(t, http.StatusCreated, lock("writer", "/new.txt"))
 }
 
+// TestServerLockTokenMustCoverPath checks a token cannot unlock or refresh a
+// lock outside the request path, which tokens being sequential makes easy.
+func TestServerLockTokenMustCoverPath(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"a/doc.txt": []byte("alice"),
+		"b/x.txt":   []byte("bob"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: none
+users:
+  - username: alice
+    password: alice
+    rules:
+      - path: /a/
+        permissions: CRUD
+  - username: bob
+    password: bob
+    rules:
+      - path: /b/
+        permissions: CRUD
+`, dir))
+	defer srv.Close()
+
+	lock := func(username, path string) string {
+		t.Helper()
+		req, err := http.NewRequest("LOCK", srv.URL+path, strings.NewReader(exclusiveWriteLock))
+		require.NoError(t, err)
+		req.SetBasicAuth(username, username)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		return strings.Trim(resp.Header.Get("Lock-Token"), "<>")
+	}
+
+	alice := lock("alice", "/a/doc.txt")
+	require.NotEqual(t, alice, lock("bob", "/b/x.txt"))
+
+	code, _ := doRequest(t, "UNLOCK", srv.URL+"/b/x.txt", "bob", "bob", map[string]string{"Lock-Token": "<" + alice + ">"}, "")
+	require.Equal(t, http.StatusConflict, code)
+
+	code, _ = doRequest(t, "LOCK", srv.URL+"/b/x.txt", "bob", "bob", map[string]string{"If": "(<" + alice + ">)"}, "")
+	require.Equal(t, http.StatusPreconditionFailed, code)
+
+	code, _ = doRequest(t, "PUT", srv.URL+"/a/doc.txt", "alice", "alice", nil, "overwritten")
+	require.Equal(t, http.StatusLocked, code)
+
+	code, _ = doRequest(t, "UNLOCK", srv.URL+"/a/doc.txt", "alice", "alice", map[string]string{"Lock-Token": "<" + alice + ">"}, "")
+	require.Equal(t, http.StatusNoContent, code)
+}
+
 // TestServerMoveSubmittingSourceToken covers a MOVE that submits only the
 // source's lock token, as Windows does when saving, which failed with 412.
 func TestServerMoveSubmittingSourceToken(t *testing.T) {
