@@ -1,6 +1,8 @@
 # webdav
 
 [![Version](https://img.shields.io/github/release/hacdias/webdav.svg?style=flat-square)](https://github.com/hacdias/webdav/releases/latest)
+[![Release Downloads](https://img.shields.io/github/downloads/hacdias/webdav/total?style=flat-square&label=release%20downloads)](https://github.com/hacdias/webdav/releases)
+[![GHCR Pulls](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fipitio.github.io%2Fbackage%2Fhacdias%2Fwebdav%2Fwebdav.json&query=%24.downloads&label=ghcr%20pulls&style=flat-square)](https://github.com/hacdias/webdav/pkgs/container/webdav)
 [![Docker Pulls](https://img.shields.io/docker/pulls/hacdias/webdav?style=flat-square)](https://hub.docker.com/r/hacdias/webdav)
 
 A simple and standalone [WebDAV](https://en.wikipedia.org/wiki/WebDAV) server.
