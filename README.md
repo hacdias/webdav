@@ -83,11 +83,17 @@ all the options available, as well as what they mean. Top-level keys use camelCa
 address: 0.0.0.0
 port: 6065
 
-# TLS-related settings if you want to enable TLS directly. HTTPS responses
-# include 'Strict-Transport-Security: max-age=31536000'.
+# TLS-related settings if you want to enable TLS directly.
 tls: false
 cert: cert.pem
 key: key.pem
+
+# Send a Strict-Transport-Security header on HTTPS responses, so browsers only
+# use HTTPS with this host. Set to true for 'max-age=31536000' (a year), or to
+# the header value, such as 'max-age=31536000; includeSubDomains'. Only applies
+# when this server handles TLS itself: behind a proxy, set the header there.
+# Default is 'false'.
+hsts: false
 
 # Prefix to apply to the WebDAV path-ing. Default is '/'.
 prefix: /

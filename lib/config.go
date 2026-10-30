@@ -38,6 +38,7 @@ type Config struct {
 	NoSniff         bool
 	NoPassword      bool
 	BehindProxy     bool
+	HSTS            string
 	Log             Log
 	CORS            CORS
 	Listing         Listing
@@ -87,6 +88,7 @@ func ParseConfig(filename string, flags *pflag.FlagSet) (*Config, error) {
 	v.SetDefault("Debug", false)
 	v.SetDefault("NoSniff", false)
 	v.SetDefault("NoPassword", false)
+	v.SetDefault("HSTS", "")
 	v.SetDefault("Log.Format", "console")
 	v.SetDefault("Log.Outputs", []string{"stderr"})
 	v.SetDefault("Log.Colors", true)
@@ -255,6 +257,19 @@ func (c *Config) Validate() error {
 		if err != nil {
 			return fmt.Errorf("invalid config: %w", err)
 		}
+	}
+
+	// A boolean arrives as "1" or "0", since the field is weakly typed.
+	switch strings.ToLower(c.HSTS) {
+	case "true", "1":
+		c.HSTS = "max-age=31536000"
+	case "false", "0":
+		c.HSTS = ""
+	}
+
+	// Browsers ignore the header without max-age.
+	if c.HSTS != "" && !strings.Contains(strings.ToLower(c.HSTS), "max-age=") {
+		return errors.New("invalid config: hsts must be true, false or a header value with max-age")
 	}
 
 	err = c.UserPermissions.Validate()

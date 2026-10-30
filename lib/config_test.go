@@ -687,6 +687,14 @@ func TestConfigEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("WD_DIRECTORY", ""))
 }
 
+func TestConfigInvalidHSTS(t *testing.T) {
+	t.Parallel()
+
+	for _, value := range []string{"31536000", "yes"} {
+		writeAndParseConfigWithError(t, "directory: /\nhsts: "+value, ".yml", "hsts must be")
+	}
+}
+
 func TestConfigMalformedBcryptHash(t *testing.T) {
 	t.Parallel()
 

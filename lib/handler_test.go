@@ -510,15 +510,25 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 func TestServerHSTS(t *testing.T) {
 	t.Parallel()
 
-	handler, err := NewHandler(writeAndParseConfig(t, "directory: "+t.TempDir(), ".yml"))
-	require.NoError(t, err)
-
-	for _, srv := range []*httptest.Server{httptest.NewServer(handler), httptest.NewTLSServer(handler)} {
-		resp, err := srv.Client().Get(srv.URL)
+	for value, want := range map[string]string{
+		"false":                           "",
+		"true":                            "max-age=31536000",
+		`"max-age=60; includeSubDomains"`: "max-age=60; includeSubDomains",
+	} {
+		handler, err := NewHandler(writeAndParseConfig(t, fmt.Sprintf("directory: %s\nhsts: %s", t.TempDir(), value), ".yml"))
 		require.NoError(t, err)
-		require.NoError(t, resp.Body.Close())
-		require.Equal(t, srv.TLS != nil, resp.Header.Get("Strict-Transport-Security") == "max-age=31536000")
-		srv.Close()
+
+		for _, srv := range []*httptest.Server{httptest.NewServer(handler), httptest.NewTLSServer(handler)} {
+			resp, err := srv.Client().Get(srv.URL)
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+			expected := want
+			if srv.TLS == nil {
+				expected = ""
+			}
+			require.Equal(t, expected, resp.Header.Get("Strict-Transport-Security"), value)
+			srv.Close()
+		}
 	}
 }
 

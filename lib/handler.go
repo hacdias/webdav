@@ -25,6 +25,7 @@ type handlerUser struct {
 type Handler struct {
 	noPassword  bool
 	behindProxy bool
+	hsts        string
 	listing     Listing
 	user        *handlerUser
 	users       map[string]*handlerUser
@@ -43,6 +44,7 @@ func NewHandler(c *Config) (http.Handler, error) {
 	h := &Handler{
 		noPassword:  c.NoPassword,
 		behindProxy: c.BehindProxy,
+		hsts:        c.HSTS,
 		listing:     c.Listing,
 		user:        newHandlerUser(User{UserPermissions: c.UserPermissions}, c, ls, logFunc),
 		users:       map[string]*handlerUser{},
@@ -131,8 +133,8 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	lZap := getRequestLogger(r, h.behindProxy)
 
-	if r.TLS != nil {
-		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+	if h.hsts != "" && r.TLS != nil {
+		w.Header().Set("Strict-Transport-Security", h.hsts)
 	}
 
 	// Authentication
