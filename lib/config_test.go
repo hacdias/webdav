@@ -687,6 +687,17 @@ func TestConfigEnv(t *testing.T) {
 	require.NoError(t, os.Setenv("WD_DIRECTORY", ""))
 }
 
+func TestConfigMalformedBcryptHash(t *testing.T) {
+	t.Parallel()
+
+	writeAndParseConfigWithError(t, `
+directory: /
+users:
+  - username: basic
+    password: "{bcrypt}$2y$10$abc"
+`, ".yml", `invalid user "basic"`)
+}
+
 func TestConfigParseUserPasswordEnvironment(t *testing.T) {
 	content := `
 directory: /

@@ -68,6 +68,12 @@ func (u *User) Validate(noPassword bool) error {
 		}
 	}
 
+	if hash, ok := strings.CutPrefix(u.Password, "{bcrypt}"); ok {
+		if _, err := bcrypt.Cost([]byte(hash)); err != nil {
+			return fmt.Errorf("invalid user %q: %w", u.Username, err)
+		}
+	}
+
 	if err := u.UserPermissions.Validate(); err != nil {
 		return fmt.Errorf("invalid user %q: %w", u.Username, err)
 	}
