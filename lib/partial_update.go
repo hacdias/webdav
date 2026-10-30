@@ -383,7 +383,7 @@ func (u *handlerUser) confirmPartialUpdateLocks(r *http.Request, src string) (re
 			if parsedURL.Host != r.Host {
 				continue
 			}
-			lsrc, err = stripPartialPrefix(parsedURL.Path, u.handler.Prefix)
+			lsrc, err = stripPrefix(parsedURL.Path, u.handler.Prefix)
 			if err != nil {
 				return nil, http.StatusNotFound, err
 			}
@@ -503,14 +503,4 @@ func cutPartialIfToken(s string, open, close byte) (string, string, bool) {
 	}
 	token, rest, ok := strings.Cut(s[1:], string(close))
 	return token, rest, ok
-}
-
-func stripPartialPrefix(p, prefix string) (string, error) {
-	if prefix == "" {
-		return p, nil
-	}
-	if stripped := strings.TrimPrefix(p, prefix); len(stripped) < len(p) {
-		return stripped, nil
-	}
-	return "", errors.New("webdav: prefix mismatch")
 }

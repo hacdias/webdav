@@ -91,13 +91,9 @@ func newRequest(r *http.Request, prefix string) (*request, error) {
 		// RFC 4918, section 10.3, has Destination as an absolute URI, which is
 		// what clients send in practice. Only the path is relevant here, and
 		// taking it unconditionally keeps the host out of the matched value.
-		destination = u.Path
-
-		if prefix != "" {
-			destination = strings.TrimPrefix(u.Path, prefix)
-			if len(destination) >= len(u.Path) {
-				return nil, errors.New("invalid url prefix")
-			}
+		destination, err = stripPrefix(u.Path, prefix)
+		if err != nil {
+			return nil, err
 		}
 
 		ctx.destination = cleanPath(destination)
@@ -106,13 +102,9 @@ func newRequest(r *http.Request, prefix string) (*request, error) {
 		}
 	}
 
-	path := r.URL.Path
-
-	if prefix != "" {
-		path = strings.TrimPrefix(r.URL.Path, prefix)
-		if len(path) >= len(r.URL.Path) {
-			return nil, errors.New("invalid url prefix")
-		}
+	path, err := stripPrefix(r.URL.Path, prefix)
+	if err != nil {
+		return nil, err
 	}
 
 	ctx.path = cleanPath(path)
@@ -121,4 +113,15 @@ func newRequest(r *http.Request, prefix string) (*request, error) {
 	}
 
 	return ctx, nil
+}
+
+// stripPrefix removes prefix from p, failing when p does not start with it.
+func stripPrefix(p, prefix string) (string, error) {
+	if prefix == "" {
+		return p, nil
+	}
+	if stripped := strings.TrimPrefix(p, prefix); len(stripped) < len(p) {
+		return stripped, nil
+	}
+	return "", errors.New("invalid url prefix")
 }
