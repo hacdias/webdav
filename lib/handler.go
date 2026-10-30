@@ -10,6 +10,7 @@ import (
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/net/webdav"
 )
 
@@ -26,6 +27,8 @@ type Handler struct {
 	listing     Listing
 	user        *handlerUser
 	users       map[string]*handlerUser
+	// decoyHash is checked for unknown users and plaintext passwords, so all take as long to refuse.
+	decoyHash []byte
 }
 
 func NewHandler(c *Config) (http.Handler, error) {
@@ -46,6 +49,10 @@ func NewHandler(c *Config) (http.Handler, error) {
 
 	for _, u := range c.Users {
 		h.users[u.Username] = newHandlerUser(u, c, ls, logFunc)
+
+		if hash, ok := strings.CutPrefix(u.Password, "{bcrypt}"); ok && !c.NoPassword {
+			h.decoyHash = []byte(hash)
+		}
 	}
 
 	if len(c.Users) == 0 {
@@ -136,6 +143,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		user, ok = h.users[username]
 		if !ok {
+			if h.decoyHash != nil {
+				_ = bcrypt.CompareHashAndPassword(h.decoyHash, []byte(password))
+			}
+
 			// Log invalid username
 			lZap.Info("invalid username", zap.String("username", username))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -143,6 +154,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if !h.noPassword && !user.checkPassword(password) {
+			if h.decoyHash != nil && !strings.HasPrefix(user.Password, "{bcrypt}") {
+				_ = bcrypt.CompareHashAndPassword(h.decoyHash, []byte(password))
+			}
+
 			// Log invalid password
 			lZap.Info("invalid password", zap.String("username", username))
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
