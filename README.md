@@ -256,7 +256,7 @@ users:
 
 ### Rules
 
-Rules are matched against the request path after dot segments have been resolved, so `/public/../secret/file` is matched as `/secret/file`. The last rule that matches wins.
+Rules are matched against the request path after dot segments have been resolved, so `/public/../secret/file` is matched as `/secret/file`. A `path` rule is cleaned the same way, so `./secret/` means `/secret/`. The last rule that matches wins.
 
 A `path` rule is a prefix match. A rule written with a trailing slash also covers the collection it names, so `path: /secret/` applies to a request for `/secret` as well. Such a rule can only restrict that collection: acting on the collection itself also requires the permissions that apply outside the rule, since the operation takes place in the parent collection.
 

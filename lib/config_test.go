@@ -580,6 +580,19 @@ rules:
 		require.Nil(t, cfg.Rules[1].Regex)
 	})
 
+	t.Run("Unclean Path", func(t *testing.T) {
+		for _, p := range []string{"secret/", "./secret/", "/secret//", "/public/../secret/"} {
+			content := `
+directory: /
+rules:
+  - path: ` + p
+
+			cfg := writeAndParseConfig(t, content, ".yaml")
+			require.NoError(t, cfg.Validate())
+			require.Equal(t, "/secret/", cfg.Rules[0].Path, p)
+		}
+	})
+
 	t.Run("Rules Behavior (Default: Overwrite)", func(t *testing.T) {
 		content := `
 directory: /

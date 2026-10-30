@@ -23,6 +23,11 @@ func (r *Rule) Validate() error {
 		return errors.New("invalid rule: cannot define both regex and path")
 	}
 
+	// Rules match cleaned request paths, so they are cleaned the same way.
+	if r.Path != "" {
+		r.Path = cleanPath(r.Path)
+	}
+
 	return nil
 }
 
