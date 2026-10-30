@@ -102,4 +102,9 @@ func TestLockSystemRefreshReportsRequestPath(t *testing.T) {
 	name, ok := trimDir("/a.txt", "/")
 	require.True(t, ok)
 	require.Equal(t, "/a.txt", name)
+
+	// Upstream roots a Windows path the way it roots any other name.
+	name, ok = trimDir("/C:/data/a.txt", "C:/data")
+	require.True(t, ok)
+	require.Equal(t, "/a.txt", name)
 }

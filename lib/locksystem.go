@@ -75,7 +75,8 @@ func newMultiDirLockSystem(ls webdav.LockSystem, mounts DirectoryMounts) *lockSy
 
 // trimDir returns p as a rooted path within dir, reporting whether it is in dir.
 func trimDir(p, dir string) (string, bool) {
-	rest, ok := strings.CutPrefix(p, strings.TrimSuffix(dir, "/"))
+	// Rooted as upstream roots lock names, which turns C:/data into /C:/data.
+	rest, ok := strings.CutPrefix(p, strings.TrimSuffix(path.Clean("/"+dir), "/"))
 	if !ok || rest != "" && rest[0] != '/' {
 		return "", false
 	}
