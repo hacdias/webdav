@@ -135,6 +135,11 @@ func canCreate(p Permissions) bool { return p.Create }
 // walkAllowed reports whether allowed holds for every descendant of name in fs,
 // given its path and the same path under at. Link loops end in ELOOP.
 func walkAllowed(ctx context.Context, fs webdav.FileSystem, perms UserPermissions, name, at string, follow bool, allowed func(name, at string) bool) (bool, error) {
+	// Without rules, every descendant resolves to the same permissions as name.
+	if len(perms.Rules) == 0 && allowed(name, at) {
+		return true, nil
+	}
+
 	info, err := fs.Stat(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {

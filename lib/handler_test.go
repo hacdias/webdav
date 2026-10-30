@@ -1739,6 +1739,31 @@ rules:
 	require.NoFileExists(t, filepath.Join(dir, "project2", ".env"))
 }
 
+// TestServerDestinationOverwriteRequiresCreate checks the walk is skipped
+// without rules only when the permissions themselves allow creating.
+func TestServerDestinationOverwriteRequiresCreate(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"src/a.txt":   []byte("a"),
+		"dst/old.txt": []byte("old"),
+	})
+
+	srv := makeTestServer(t, "directory: "+dir+"\npermissions: RUD\n")
+	defer srv.Close()
+
+	for _, method := range []string{"COPY", "MOVE"} {
+		code, _ := doRequest(t, method, srv.URL+"/src/", "", "", map[string]string{
+			"Destination": srv.URL + "/dst/",
+			"Overwrite":   "T",
+		}, "")
+		require.Equal(t, http.StatusForbidden, code, method)
+	}
+
+	require.FileExists(t, filepath.Join(dir, "dst", "old.txt"))
+	require.NoFileExists(t, filepath.Join(dir, "dst", "a.txt"))
+}
+
 // TestServerRulesDestinationCreatedThroughLinks checks COPY is authorized for
 // what it copies through a linked directory, as it follows the link.
 func TestServerRulesDestinationCreatedThroughLinks(t *testing.T) {
