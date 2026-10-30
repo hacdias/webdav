@@ -53,7 +53,7 @@ func TestConfigDefaults(t *testing.T) {
 	require.Equal(t, dir, cfg.Directory)
 
 	require.EqualValues(t, []string{"*"}, cfg.CORS.AllowedHosts)
-	require.EqualValues(t, []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "X-Update-Range"}, cfg.CORS.AllowedHeaders)
+	require.EqualValues(t, []string{"Authorization", "Content-Type", "Content-Range", "Depth", "Destination", "If", "Lock-Token", "Overwrite", "Timeout", "Translate", "X-Update-Range"}, cfg.CORS.AllowedHeaders)
 	require.EqualValues(t, []string{"COPY", "DELETE", "GET", "HEAD", "LOCK", "MKCOL", "MOVE", "OPTIONS", "PATCH", "POST", "PROPFIND", "PROPPATCH", "PUT", "UNLOCK"}, cfg.CORS.AllowedMethods)
 	require.False(t, cfg.Listing.Enabled)
 	require.False(t, cfg.Listing.HideParentDir)

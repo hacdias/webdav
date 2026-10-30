@@ -272,7 +272,7 @@ On Windows, a request for a name that Windows would open as a different file is 
 
 ### CORS
 
-The `allowed_*` properties are optional, the default value for each of them will be `*`. `exposed_headers` is optional as well, but is not set if not defined. Setting `allow_private_network` to `true` to allow Private-Network-Access preflight requests. Setting `credentials` to `true` will allow you to:
+The `allowed_*` properties are optional and default to the values in the example above. `exposed_headers` is optional as well, but is not set if not defined. Setting `allow_private_network` to `true` to allow Private-Network-Access preflight requests. Setting `credentials` to `true` will allow you to:
 
 1. Use `withCredentials = true` in javascript.
 2. Use the `username:password@host` syntax.
