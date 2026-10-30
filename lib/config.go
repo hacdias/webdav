@@ -308,10 +308,6 @@ func decodeDirectoryMounts(data any) (DirectoryMounts, error) {
 	switch value := data.(type) {
 	case nil:
 		return DirectoryMounts{}, nil
-	case DirectoryMounts:
-		return value, nil
-	case []DirectoryMount:
-		return DirectoryMounts(value), nil
 	case string:
 		if value == "" {
 			return DirectoryMounts{}, nil
@@ -335,12 +331,6 @@ func decodeDirectoryMounts(data any) (DirectoryMounts, error) {
 				return nil, err
 			}
 			mounts = append(mounts, mount)
-		}
-		return mounts, nil
-	case []string:
-		mounts := make(DirectoryMounts, 0, len(value))
-		for _, item := range value {
-			mounts = append(mounts, DirectoryMount{Path: item})
 		}
 		return mounts, nil
 	default:
