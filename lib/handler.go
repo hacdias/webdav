@@ -1,10 +1,12 @@
 package lib
 
 import (
+	"crypto/sha256"
 	"net/http"
 	"os"
 	"path"
 	"strings"
+	"sync/atomic"
 
 	"github.com/rs/cors"
 	"go.uber.org/zap"
@@ -13,8 +15,9 @@ import (
 
 type handlerUser struct {
 	User
-	handler webdav.Handler
-	fs      permissionsFS
+	handler  webdav.Handler
+	fs       permissionsFS
+	verified atomic.Pointer[[sha256.Size]byte]
 }
 
 type Handler struct {

@@ -1,6 +1,7 @@
 package lib
 
 import (
+	"crypto/sha256"
 	"crypto/subtle"
 	"errors"
 	"fmt"
@@ -22,6 +23,21 @@ func (u User) checkPassword(input string) bool {
 	}
 
 	return subtle.ConstantTimeCompare([]byte(u.Password), []byte(input)) == 1
+}
+
+// checkPassword remembers the last accepted password, as bcrypt is slow by design.
+func (u *handlerUser) checkPassword(input string) bool {
+	sum := sha256.Sum256([]byte(input))
+	if last := u.verified.Load(); last != nil && subtle.ConstantTimeCompare(last[:], sum[:]) == 1 {
+		return true
+	}
+
+	if !u.User.checkPassword(input) {
+		return false
+	}
+
+	u.verified.Store(&sum)
+	return true
 }
 
 func (u *User) Validate(noPassword bool) error {
