@@ -132,10 +132,6 @@ func (u *handlerUser) handlePartialUpdate(w http.ResponseWriter, r *http.Request
 
 	if updateRange.hasEnd {
 		expected := updateRange.end - updateRange.offset + 1
-		if expected < 0 {
-			http.Error(w, "invalid byte range", http.StatusRequestedRangeNotSatisfiable)
-			return
-		}
 		if r.ContentLength >= 0 && r.ContentLength != expected {
 			http.Error(w, "content length does not match byte range", http.StatusRequestedRangeNotSatisfiable)
 			return
@@ -298,16 +294,10 @@ func parseByteRange(spec string, allowNegativeStart bool) (updateRange, error) {
 	if err != nil {
 		return updateRange{}, errors.New("invalid byte range start")
 	}
-	if start < 0 && !allowNegativeStart {
-		return updateRange{}, errors.New("invalid byte range start")
-	}
 
 	r := updateRange{offset: start}
 	if endText == "" {
 		return r, nil
-	}
-	if start < 0 {
-		return updateRange{}, errors.New("negative byte range cannot include an end")
 	}
 
 	end, err := strconv.ParseInt(endText, 10, 64)
