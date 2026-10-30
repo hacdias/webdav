@@ -507,6 +507,22 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 	}
 }
 
+func TestServerSandboxesFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"page.html": []byte("<script>fetch('/')</script>"),
+	})
+	srv := makeTestServer(t, "directory: "+dir)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/page.html")
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, "sandbox", resp.Header.Get("Content-Security-Policy"))
+}
+
 func TestServerListingCharacters(t *testing.T) {
 	t.Parallel()
 

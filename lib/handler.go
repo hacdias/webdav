@@ -354,6 +354,9 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Keeps uploaded pages from acting with the viewer's credentials.
+	w.Header().Set("Content-Security-Policy", "sandbox")
+
 	// Runs the WebDAV.
 	handler := user.handler
 	if r.Method == "PROPFIND" {
