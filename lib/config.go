@@ -237,11 +237,6 @@ func envKey(key string) string {
 func (c *Config) Validate() error {
 	var err error
 
-	c.Directory, err = filepath.Abs(c.Directory)
-	if err != nil {
-		return fmt.Errorf("invalid config: %w", err)
-	}
-
 	if c.TLS {
 		if c.Cert == "" {
 			return errors.New("invalid config: Cert must be defined if TLS is activated")
