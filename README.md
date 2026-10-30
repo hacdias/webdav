@@ -81,7 +81,8 @@ all the options available, as well as what they mean. Top-level keys use camelCa
 address: 0.0.0.0
 port: 6065
 
-# TLS-related settings if you want to enable TLS directly.
+# TLS-related settings if you want to enable TLS directly. HTTPS responses
+# include 'Strict-Transport-Security: max-age=31536000'.
 tls: false
 cert: cert.pem
 key: key.pem

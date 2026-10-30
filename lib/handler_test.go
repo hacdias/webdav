@@ -507,6 +507,21 @@ func TestServerPartialUpdateHonorsLocks(t *testing.T) {
 	}
 }
 
+func TestServerHSTS(t *testing.T) {
+	t.Parallel()
+
+	handler, err := NewHandler(writeAndParseConfig(t, "directory: "+t.TempDir(), ".yml"))
+	require.NoError(t, err)
+
+	for _, srv := range []*httptest.Server{httptest.NewServer(handler), httptest.NewTLSServer(handler)} {
+		resp, err := srv.Client().Get(srv.URL)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Equal(t, srv.TLS != nil, resp.Header.Get("Strict-Transport-Security") == "max-age=31536000")
+		srv.Close()
+	}
+}
+
 func TestServerSandboxesFiles(t *testing.T) {
 	t.Parallel()
 

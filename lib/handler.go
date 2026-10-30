@@ -130,6 +130,10 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	lZap := getRequestLogger(r, h.behindProxy)
 
+	if r.TLS != nil {
+		w.Header().Set("Strict-Transport-Security", "max-age=31536000")
+	}
+
 	// Authentication
 	if len(h.users) > 0 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
