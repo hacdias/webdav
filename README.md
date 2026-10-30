@@ -262,7 +262,7 @@ A `path` rule is a prefix match. A rule written with a trailing slash also cover
 
 A `regex` rule is matched literally against the path, and gets none of the above handling. In particular `regex: "^/secret/"` does **not** match a request for `/secret` itself. Write `regex: "^/secret(/|$)"` if you want to cover the collection too.
 
-Rules apply to every path an operation touches, not only the one it names. Collection listings leave out entries the rules deny, copying a collection leaves those entries behind, and a `MOVE` or `DELETE` that would act on a denied descendant is refused outright.
+Rules apply to every path an operation touches, not only the one it names. Collection listings leave out entries the rules deny, copying a collection leaves those entries behind, and a `MOVE` or `DELETE` that would act on a denied descendant is refused outright. A `COPY` or `MOVE` also needs `C` on every path it creates under the destination.
 
 Overwriting a destination is authorized for what it destroys. A `COPY` or `MOVE` onto an existing destination replaces it: RFC4918 has `MOVE` perform a `DELETE` with `Depth: infinity` on the destination first, and requires an overwritten collection to end up with exactly the membership the source had, so either way whatever was there is gone. Replacing a file needs `U` on it, the same permission `PUT` needs. Replacing a collection removes everything it holds, so it needs `D` on that collection and on every path beneath it: a rule withholding `D` anywhere under a destination refuses the overwrite outright, even where it grants `C` and `U`.
 

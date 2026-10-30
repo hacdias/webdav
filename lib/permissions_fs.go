@@ -107,14 +107,35 @@ func (f *permissionsFile) readable(fis []os.FileInfo) []os.FileInfo {
 	return allowed
 }
 
-// allowedThroughout reports whether check holds for every descendant of name.
+// allowedThroughout reports whether check holds for every descendant of name
+// and, with dst set, whether each may be created at the same place under dst.
 // Rename and RemoveAll act on a subtree in one call without consulting the file
 // system per descendant, so MOVE and DELETE need this before dispatching.
 //
 // It reads f.fs directly rather than the [permissionsFS] view: the latter omits
 // the very entries this needs to refuse on.
-func (f permissionsFS) allowedThroughout(ctx context.Context, name string, check func(Permissions) bool) (bool, error) {
-	info, err := f.fs.Stat(ctx, name)
+func (f permissionsFS) allowedThroughout(ctx context.Context, name, dst string, check func(Permissions) bool) (bool, error) {
+	return walkAllowed(ctx, f.fs, f.perms, name, dst, false, func(name, at string) bool {
+		return f.perms.allowedAt(name, check) && (dst == "" || f.perms.allowedAt(at, canCreate))
+	})
+}
+
+// creatableThroughout reports whether every descendant of src that a COPY
+// carries over may be created at the same place under dst. It reads the
+// [permissionsFS] view, since a copy leaves behind the entries it omits, and
+// follows links, since a copy does.
+func (f permissionsFS) creatableThroughout(ctx context.Context, src, dst string) (bool, error) {
+	return walkAllowed(ctx, f, f.perms, src, dst, true, func(_, at string) bool {
+		return f.perms.allowedAt(at, canCreate)
+	})
+}
+
+func canCreate(p Permissions) bool { return p.Create }
+
+// walkAllowed reports whether allowed holds for every descendant of name in fs,
+// given its path and the same path under at. Link loops end in ELOOP.
+func walkAllowed(ctx context.Context, fs webdav.FileSystem, perms UserPermissions, name, at string, follow bool, allowed func(name, at string) bool) (bool, error) {
+	info, err := fs.Stat(ctx, name)
 	if err != nil {
 		if os.IsNotExist(err) {
 			// Nothing to walk; the request fails later on its own terms.
@@ -128,7 +149,7 @@ func (f permissionsFS) allowedThroughout(ctx context.Context, name string, check
 		return true, nil
 	}
 
-	file, err := f.fs.OpenFile(ctx, name, os.O_RDONLY, 0)
+	file, err := fs.OpenFile(ctx, name, os.O_RDONLY, 0)
 	if err != nil {
 		return false, err
 	}
@@ -140,14 +161,14 @@ func (f permissionsFS) allowedThroughout(ctx context.Context, name string, check
 	}
 
 	for _, entry := range entries {
-		child := path.Join(name, entry.Name())
+		child, childAt := path.Join(name, entry.Name()), path.Join(at, entry.Name())
 
-		if !f.perms.allowedAt(child, check) {
+		if !allowed(child, childAt) {
 			return false, nil
 		}
 
-		if entry.IsDir() {
-			ok, err := f.allowedThroughout(ctx, child, check)
+		if entry.IsDir() || follow && entry.Mode()&os.ModeSymlink != 0 {
+			ok, err := walkAllowed(ctx, fs, perms, child, childAt, follow, allowed)
 			if !ok || err != nil {
 				return ok, err
 			}

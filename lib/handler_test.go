@@ -1674,6 +1674,93 @@ rules:
 	require.FileExists(t, filepath.Join(dirA, "shared", "protected", "flag.txt"))
 }
 
+// TestServerRulesDestinationCreatedDescendants checks COPY and MOVE need Create
+// on every path they create under the destination.
+func TestServerRulesDestinationCreatedDescendants(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"stage/shell.php": []byte("<?php"),
+		"www/index.txt":   []byte("index"),
+		"project/a.txt":   []byte("a"),
+		"project/.env":    []byte("secret"),
+	})
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - regex: '^/www/.*\.php$'
+    permissions: R
+  - regex: '\.env$'
+    permissions: none
+`, dir))
+	defer srv.Close()
+
+	// Control: the rule holds when the request names the path.
+	code, _ := doRequest(t, "PUT", srv.URL+"/www/shell.php", "", "", nil, "<?php")
+	require.Equal(t, http.StatusForbidden, code)
+
+	code, _ = doRequest(t, "COPY", srv.URL+"/stage/", "", "", map[string]string{
+		"Destination": srv.URL + "/www/copied/",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+	require.NoDirExists(t, filepath.Join(dir, "www", "copied"))
+
+	code, _ = doRequest(t, "MOVE", srv.URL+"/stage/", "", "", map[string]string{
+		"Destination": srv.URL + "/www/moved/",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+	require.NoDirExists(t, filepath.Join(dir, "www", "moved"))
+	require.FileExists(t, filepath.Join(dir, "stage", "shell.php"))
+
+	// A COPY leaves unreadable entries behind, so they need no Create either.
+	code, _ = doRequest(t, "COPY", srv.URL+"/project/", "", "", map[string]string{
+		"Destination": srv.URL + "/project2/",
+	}, "")
+	require.Equal(t, http.StatusCreated, code)
+	require.FileExists(t, filepath.Join(dir, "project2", "a.txt"))
+	require.NoFileExists(t, filepath.Join(dir, "project2", ".env"))
+}
+
+// TestServerRulesDestinationCreatedThroughLinks checks COPY is authorized for
+// what it copies through a linked directory, as it follows the link.
+func TestServerRulesDestinationCreatedThroughLinks(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{
+		"www/index.txt": []byte("index"),
+		"stage/a.txt":   []byte("a"),
+		"loop/a.txt":    []byte("a"),
+	})
+	lib := makeTestDirectory(t, map[string][]byte{"shell.php": []byte("<?php")})
+	if err := os.Symlink(lib, filepath.Join(dir, "stage", "lib")); err != nil {
+		t.Skipf("symbolic links are unavailable: %v", err)
+	}
+	require.NoError(t, os.Symlink(".", filepath.Join(dir, "loop", "self")))
+
+	srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+permissions: CRUD
+rules:
+  - regex: '^/www/.*\.php$'
+    permissions: R
+`, dir))
+	defer srv.Close()
+
+	code, _ := doRequest(t, "COPY", srv.URL+"/stage/", "", "", map[string]string{
+		"Destination": srv.URL + "/www/new/",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+	require.NoDirExists(t, filepath.Join(dir, "www", "new"))
+
+	// A link loop ends the walk with an error instead of recursing forever.
+	code, _ = doRequest(t, "COPY", srv.URL+"/loop/", "", "", map[string]string{
+		"Destination": srv.URL + "/www/loop/",
+	}, "")
+	require.Equal(t, http.StatusForbidden, code)
+}
+
 // TestServerRulesDestinationOverwriteRequiresDelete covers the permission class
 // the overwrite is authorized under. Removing a collection is delete-class, so a
 // rule that grants writes but withholds D refuses the overwrite, whether it

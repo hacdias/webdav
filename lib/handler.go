@@ -195,7 +195,13 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// which would disclose a path the rules hide, so this answers 403.
 	if r.Method == "MOVE" || r.Method == "DELETE" ||
 		(r.Method == "LOCK" && r.Header.Get("Depth") != "0" && r.ContentLength != 0) {
-		ok, err := user.fs.allowedThroughout(r.Context(), req.path, func(p Permissions) bool {
+		// A rename also creates every descendant under the destination.
+		var dst string
+		if r.Method == "MOVE" {
+			dst = req.destination
+		}
+
+		ok, err := user.fs.allowedThroughout(r.Context(), req.path, dst, func(p Permissions) bool {
 			return p.Allowed(req, fileExists)
 		})
 		if err != nil {
@@ -239,7 +245,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			// than a delete, so that is checked here.
 			ok := user.allowedAt(req.destination, deletable)
 			if ok {
-				ok, err = user.fs.allowedThroughout(r.Context(), req.destination, deletable)
+				ok, err = user.fs.allowedThroughout(r.Context(), req.destination, "", deletable)
 				if err != nil {
 					lZap.Error("could not authorize destination subtree", zap.String("destination", req.destination), zap.Error(err))
 					w.WriteHeader(http.StatusForbidden)
@@ -252,6 +258,22 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 				return
 			}
+		}
+	}
+
+	// Allowed covers the destination itself, not the descendants a copy creates under it.
+	if r.Method == "COPY" && r.Header.Get("Depth") != "0" && req.destination != "" {
+		ok, err := user.fs.creatableThroughout(r.Context(), req.path, req.destination)
+		if err != nil {
+			lZap.Error("could not authorize destination descendants", zap.String("destination", req.destination), zap.Error(err))
+			w.WriteHeader(http.StatusForbidden)
+			return
+		}
+
+		if !ok {
+			lZap.Info("denied by a rule under the destination", zap.String("method", r.Method), zap.String("destination", req.destination))
+			w.WriteHeader(http.StatusForbidden)
+			return
 		}
 	}
 
