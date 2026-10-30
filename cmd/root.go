@@ -49,6 +49,9 @@ The environment variables are prefixed by "WD_" followed by the option
 name in caps. So to set "cert" via an env variable, you should
 set WD_CERT.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		// Flags parsed fine, so usage would not help with what fails from here.
+		cmd.SilenceUsage = true
+
 		flags := cmd.Flags()
 
 		cfgFilename, _ := flags.GetString("config")
@@ -91,29 +94,28 @@ set WD_CERT.`,
 
 		// Trap exiting signals
 		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 
+		failed := make(chan error, 1)
 		go func() {
 			zap.L().Info("listening", zap.String("address", listener.Addr().String()))
 
-			var err error
 			if cfg.TLS {
-				err = server.ServeTLS(listener, cfg.Cert, cfg.Key)
+				failed <- server.ServeTLS(listener, cfg.Cert, cfg.Key)
 			} else {
-				err = server.Serve(listener)
+				failed <- server.Serve(listener)
 			}
-
-			if err != nil && !errors.Is(err, http.ErrServerClosed) {
-				zap.L().Error("failed to start server", zap.Error(err))
-			}
-
-			quit <- os.Interrupt
 		}()
 
-		signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
-		signal := <-quit
-
-		zap.L().Info("caught signal, shutting down", zap.Stringer("signal", signal))
-		_ = server.Shutdown(context.Background())
+		select {
+		case err := <-failed:
+			// Shutdown has not run, so this is never [http.ErrServerClosed].
+			zap.L().Error("failed to start server", zap.Error(err))
+			return err
+		case sig := <-quit:
+			zap.L().Info("caught signal, shutting down", zap.Stringer("signal", sig))
+			_ = server.Shutdown(context.Background())
+		}
 
 		return nil
 	},
