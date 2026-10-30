@@ -4,6 +4,7 @@ import (
 	"errors"
 	"path"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"golang.org/x/net/webdav"
@@ -17,7 +18,8 @@ var _ webdav.LockSystem = &lockSystem{}
 // meaning we can correctly lock the files across different users.
 type lockSystem struct {
 	webdav.LockSystem
-	resolve func(name string) (string, error)
+	resolve   func(name string) (string, error)
+	unresolve func(root string) string
 }
 
 // newLockSystem returns a lockSystem for a single-directory user, resolving
@@ -30,6 +32,12 @@ func newLockSystem(ls webdav.LockSystem, directory string) *lockSystem {
 			// on Windows where filepath.Join would emit backslashes and break
 			// descendant-lock matching in the underlying LockSystem.
 			return path.Join(filepath.ToSlash(directory), name), nil
+		},
+		unresolve: func(root string) string {
+			if name, ok := trimDir(root, filepath.ToSlash(directory)); ok {
+				return name
+			}
+			return "/"
 		},
 	}
 }
@@ -54,7 +62,24 @@ func newMultiDirLockSystem(ls webdav.LockSystem, mounts DirectoryMounts) *lockSy
 			// on Windows.
 			return filepath.ToSlash(mount.filePath(rest)), nil
 		},
+		unresolve: func(root string) string {
+			for _, mount := range mounts {
+				if name, ok := trimDir(root, filepath.ToSlash(mount.Path)); ok {
+					return path.Join("/", mount.Name, name)
+				}
+			}
+			return "/"
+		},
 	}
+}
+
+// trimDir returns p as a rooted path within dir, reporting whether it is in dir.
+func trimDir(p, dir string) (string, bool) {
+	rest, ok := strings.CutPrefix(p, strings.TrimSuffix(dir, "/"))
+	if !ok || rest != "" && rest[0] != '/' {
+		return "", false
+	}
+	return "/" + strings.TrimPrefix(rest, "/"), true
 }
 
 func (l *lockSystem) Confirm(now time.Time, name0, name1 string, conditions ...webdav.Condition) (release func(), err error) {
@@ -94,6 +119,15 @@ func (l *lockSystem) Confirm(now time.Time, name0, name1 string, conditions ...w
 		_ = l.Unlock(now, token)
 		releaseSource()
 	}, nil
+}
+
+// Refresh maps the root back from the backing path, as [webdav.Handler] writes it into the response.
+func (l *lockSystem) Refresh(now time.Time, token string, duration time.Duration) (webdav.LockDetails, error) {
+	details, err := l.LockSystem.Refresh(now, token, duration)
+	if err == nil {
+		details.Root = l.unresolve(details.Root)
+	}
+	return details, err
 }
 
 func (l *lockSystem) Create(now time.Time, details webdav.LockDetails) (token string, err error) {
