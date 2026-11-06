@@ -317,6 +317,20 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Preconditions (RFC 9110 section 13.1) are evaluated before anything reaches
+	// the write path. Upstream x/net/webdav does not check If-Match or
+	// If-None-Match for writing methods, and without that check "safe overwrite"
+	// probes fail, so backup clients refuse to upload at all. See
+	// lib/precondition.go for what is implemented here and why.
+	if status, reason := checkPreconditions(r, user.fs, req.path); status != 0 {
+		lZap.Debug("precondition failed",
+			zap.String("method", r.Method),
+			zap.String("path", r.URL.Path),
+			zap.String("reason", reason))
+		http.Error(w, http.StatusText(status), status)
+		return
+	}
+
 	if r.Method == "HEAD" {
 		w = responseWriterNoBody{w}
 	}
