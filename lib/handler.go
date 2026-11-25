@@ -137,6 +137,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Strict-Transport-Security", h.hsts)
 	}
 
+	// Unauthenticated health check for container healthchecks.
+	if (r.Method == "GET" || r.Method == "HEAD") && r.URL.Path == path.Join("/", h.user.handler.Prefix, "__webdav__/health") {
+		return
+	}
+
 	// Authentication
 	if len(h.users) > 0 {
 		w.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)

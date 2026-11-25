@@ -109,6 +109,45 @@ cors:
 	require.Equal(t, "true", resp.Header.Get("Access-Control-Allow-Private-Network"))
 }
 
+func TestServerHealth(t *testing.T) {
+	t.Parallel()
+
+	dir := makeTestDirectory(t, map[string][]byte{})
+
+	for _, tc := range []struct {
+		prefix, method, path string
+		status               int
+	}{
+		{"/", "GET", "/__webdav__/health", http.StatusOK},
+		{"/", "HEAD", "/__webdav__/health", http.StatusOK},
+		{"/", "PROPFIND", "/__webdav__/health", http.StatusUnauthorized},
+		{"/dav", "GET", "/dav/__webdav__/health", http.StatusOK},
+		{"/dav", "GET", "/__webdav__/health", http.StatusUnauthorized},
+	} {
+		t.Run(tc.prefix+" "+tc.method+" "+tc.path, func(t *testing.T) {
+			t.Parallel()
+
+			srv := makeTestServer(t, fmt.Sprintf(`
+directory: %s
+prefix: %s
+users:
+  - username: basic
+    password: basic
+`, dir, tc.prefix))
+			defer srv.Close()
+
+			req, err := http.NewRequest(tc.method, srv.URL+tc.path, nil)
+			require.NoError(t, err)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, tc.status, resp.StatusCode)
+		})
+	}
+}
+
 func TestServerPartialUpdateOptions(t *testing.T) {
 	t.Parallel()
 

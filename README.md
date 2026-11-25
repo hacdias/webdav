@@ -53,6 +53,8 @@ docker run \
   ghcr.io/hacdias/webdav -c /config.yml
 ```
 
+For healthchecks, `<prefix>/__webdav__/health` answers `200 OK` to `GET` and `HEAD` without authentication, and the image includes `wget` to query it, as shown in `compose.yml`.
+
 If you are using [fail2ban](#fail2ban-setup), it would be helpful to add the parameters listed below. They will assist in analyzing 
 the log.
 
