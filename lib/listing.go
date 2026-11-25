@@ -24,13 +24,14 @@ var listingTemplate = template.Must(template.New("listing").Parse(listingTemplat
 type ListingSortField string
 type ListingSortOrder string
 
+// The fancyindex query codes.
 const (
-	listingSortByName ListingSortField = "name"
-	listingSortByDate ListingSortField = "date"
-	listingSortBySize ListingSortField = "size"
+	listingSortByName ListingSortField = "N"
+	listingSortByDate ListingSortField = "M"
+	listingSortBySize ListingSortField = "S"
 
-	listingSortAsc  ListingSortOrder = "asc"
-	listingSortDesc ListingSortOrder = "desc"
+	listingSortAsc  ListingSortOrder = "A"
+	listingSortDesc ListingSortOrder = "D"
 )
 
 type ListingSortOptions struct {
@@ -41,20 +42,19 @@ type ListingSortOptions struct {
 // ParseListingSortQuery reads the fancyindex-style ?C=<column>&O=<order> query params.
 // Defaults to sorting by date, descending, when no query params are given.
 func ParseListingSortQuery(query url.Values) ListingSortOptions {
-	field, ok := listingSortFieldFromCode(query.Get("C"))
-	if !ok {
-		field = listingSortByDate
+	sorting := ListingSortOptions{Field: listingSortByDate, Order: listingSortDesc}
+
+	switch field := ListingSortField(strings.ToUpper(query.Get("C"))); field {
+	case listingSortByName, listingSortByDate, listingSortBySize:
+		sorting.Field = field
 	}
 
-	order, ok := listingSortOrderFromCode(query.Get("O"))
-	if !ok {
-		order = listingSortDesc
+	switch order := ListingSortOrder(strings.ToUpper(query.Get("O"))); order {
+	case listingSortAsc, listingSortDesc:
+		sorting.Order = order
 	}
 
-	return ListingSortOptions{
-		Field: field,
-		Order: order,
-	}
+	return sorting
 }
 
 type FileEntry struct {
@@ -199,7 +199,7 @@ func listingSortLink(field ListingSortField, current ListingSortOptions) string 
 		}
 	}
 
-	return fmt.Sprintf("?C=%s&O=%s", listingSortFieldToCode(field), listingSortOrderToCode(order))
+	return fmt.Sprintf("?C=%s&O=%s", field, order)
 }
 
 func listingSortLabel(label string, field ListingSortField, current ListingSortOptions) string {
@@ -238,50 +238,6 @@ func fileEntryLink(entry FileEntry) string {
 		return link + "/"
 	}
 	return link
-}
-
-// listingSortFieldToCode maps a field to fancyindex's column code (N=name, M=modified, S=size).
-func listingSortFieldToCode(field ListingSortField) string {
-	switch field {
-	case listingSortByDate:
-		return "M"
-	case listingSortBySize:
-		return "S"
-	default:
-		return "N"
-	}
-}
-
-func listingSortFieldFromCode(code string) (ListingSortField, bool) {
-	switch strings.ToUpper(code) {
-	case "N":
-		return listingSortByName, true
-	case "M":
-		return listingSortByDate, true
-	case "S":
-		return listingSortBySize, true
-	default:
-		return "", false
-	}
-}
-
-// listingSortOrderToCode maps an order to fancyindex's code (A=ascending, D=descending).
-func listingSortOrderToCode(order ListingSortOrder) string {
-	if order == listingSortDesc {
-		return "D"
-	}
-	return "A"
-}
-
-func listingSortOrderFromCode(code string) (ListingSortOrder, bool) {
-	switch strings.ToUpper(code) {
-	case "A":
-		return listingSortAsc, true
-	case "D":
-		return listingSortDesc, true
-	default:
-		return "", false
-	}
 }
 
 // formatSize mimics nginx-fancyindex's IEC binary units (e.g. "13.8 MiB").
