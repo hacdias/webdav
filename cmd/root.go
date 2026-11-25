@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -145,7 +145,7 @@ func getListener(cfg *lib.Config) (net.Listener, error) {
 		address = cfg.Address[5:]
 		network = "unix"
 	} else {
-		address = fmt.Sprintf("%s:%d", cfg.Address, cfg.Port)
+		address = net.JoinHostPort(cfg.Address, strconv.Itoa(cfg.Port))
 		network = "tcp"
 	}
 
