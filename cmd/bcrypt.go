@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 
@@ -16,26 +17,35 @@ func init() {
 }
 
 var bcryptCmd = &cobra.Command{
-	Use:   "bcrypt",
+	Use:   "bcrypt [password]",
 	Short: "Generate a bcrypt encrypted password",
-	Args:  cobra.ExactArgs(1),
+	Long:  "Generate a bcrypt encrypted password. Without an argument, the password is read from the first line of standard input, which keeps it out of the shell history.",
+	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cost, err := cmd.Flags().GetInt("cost")
 		if err != nil {
 			return err
 		}
 
+		// [bcrypt.GenerateFromPassword] silently uses the default cost below the minimum.
 		if cost < bcrypt.MinCost {
 			return fmt.Errorf("given cost cannot be under minimum cost of %d", bcrypt.MinCost)
 		}
 
-		if cost > bcrypt.MaxCost {
-			return fmt.Errorf("given cost cannot be over maximum cost of %d", bcrypt.MaxCost)
+		var pwd string
+		if len(args) == 1 {
+			pwd = args[0]
+		} else {
+			scanner := bufio.NewScanner(cmd.InOrStdin())
+			scanner.Scan()
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+			pwd = scanner.Text()
 		}
 
-		pwd := args[0]
 		if pwd == "" {
-			return errors.New("password argument must not be empty")
+			return errors.New("password must not be empty")
 		}
 
 		hash, err := bcrypt.GenerateFromPassword([]byte(pwd), cost)
@@ -43,7 +53,7 @@ var bcryptCmd = &cobra.Command{
 			return err
 		}
 
-		fmt.Println(string(hash))
-		return nil
+		_, err = fmt.Fprintln(cmd.OutOrStdout(), string(hash))
+		return err
 	},
 }
