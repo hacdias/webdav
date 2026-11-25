@@ -12,5 +12,3 @@ services:
     volumes:
       - ./data:/data
       - ./config.yml:/config.yml:ro
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:6065/__webdav__/health"]

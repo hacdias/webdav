@@ -53,7 +53,7 @@ docker run \
   ghcr.io/hacdias/webdav -c /config.yml
 ```
 
-For healthchecks, `<prefix>/__webdav__/health` answers `200 OK` to `GET` and `HEAD` without authentication, and the image includes `wget` to query it, as shown in `compose.yml`.
+For healthchecks, `<prefix>/__webdav__/health` answers `200 OK` to `GET` and `HEAD` without authentication. The image checks it at `http://127.0.0.1:6065/__webdav__/health`, so if you change the port or prefix, or enable TLS, override `healthcheck` with the right URL.
 
 If you are using [fail2ban](#fail2ban-setup), it would be helpful to add the parameters listed below. They will assist in analyzing 
 the log.
