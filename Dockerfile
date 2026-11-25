@@ -17,4 +17,6 @@ COPY --from=build /webdav/main /bin/webdav
 
 EXPOSE 6065
 
+HEALTHCHECK CMD [ "wget", "-q", "--spider", "http://127.0.0.1:6065/__webdav__/health" ]
+
 ENTRYPOINT [ "webdav" ]
