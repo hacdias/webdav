@@ -8,15 +8,11 @@ COPY ./go.mod ./
 COPY ./go.sum ./
 RUN go mod download
 
-RUN mkdir -p -m 1777 /rootfs/tmp
-
 COPY . /webdav/
 RUN go build -o main -trimpath -ldflags="-s -w -X 'github.com/hacdias/webdav/v5/cmd.version=$VERSION'" .
 
-FROM scratch
+FROM busybox:1.38-musl
 
-# Partial updates spool request bodies to the temporary directory.
-COPY --from=build /rootfs/ /
 COPY --from=build /webdav/main /bin/webdav
 
 EXPOSE 6065
