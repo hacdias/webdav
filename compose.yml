@@ -3,11 +3,9 @@ name: webdav
 services:
   app:
     container_name: webdav
-    image: 'webdav:test'
+    image: 'ghcr.io/hacdias/webdav:v5'
     ports:
      - '6065:6065'
-    security_opt:
-      - label=type:container_runtime_t
     restart: always
     volumes:
       - ./data:/data
