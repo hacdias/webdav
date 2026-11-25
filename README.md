@@ -111,8 +111,9 @@ behindProxy: false
 
 # The directory that will be able to be accessed by the users when connecting.
 # This directory will be used by users unless they have their own 'directory' defined.
-# By default it points to the working directory. In the case of the compose file above,
-# that is /data.
+# By default it points to the working directory, which is / in the Docker image, so
+# set it explicitly, e.g. to /data for the compose file above. The image's working
+# directory may change in a future major version.
 directory: /data
 
 # Alternatively, replace 'directory' with 'directories' to expose multiple
