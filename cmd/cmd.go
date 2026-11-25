@@ -1,12 +1,13 @@
 package cmd
 
 import (
-	"log"
+	"os"
 )
 
 // Execute executes the commands.
 func Execute() {
+	// Cobra already printed the error.
 	if err := rootCmd.Execute(); err != nil {
-		log.Fatal(err)
+		os.Exit(1)
 	}
 }
