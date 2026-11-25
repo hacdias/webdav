@@ -279,6 +279,8 @@ Rules follow the case sensitivity of the file system, which each served director
 
 On Windows, a request for a name that Windows would open as a different file is refused with `400 Bad Request`, since a rule written for the real name would not cover it. That is a name containing `\` or `:`, ending in `.` or a space, a device name such as `CON`, or one shaped like an 8.3 short name such as `SECRET~1` or `REPORT~1.TXT`. Files whose real names look like that cannot be reached on Windows. Short names also resolve on some file systems elsewhere, such as FAT32 drives on Linux and Windows folders bind-mounted into Docker Desktop: don't rely on rules there, or disable 8.3 names on the volume with `fsutil 8dot3name set`.
 
+Symbolic links are followed, and rules are matched against the path of the link, not of its target. A link at `/public/docs` to `/private` serves everything under `/private` at `/public/docs/`, with the permissions that apply there instead of those set by `path: /private/`. A link can also point outside the served directory. WebDAV clients cannot create links, so only links placed on the file system do this.
+
 ### CORS
 
 The `allowed_*` properties are optional and default to the values in the example above. `exposed_headers` is optional as well, but is not set if not defined. Setting `allow_private_network` to `true` to allow Private-Network-Access preflight requests. Setting `credentials` to `true`, with specific origins in `allowed_hosts` since browsers refuse credentials when `*` is allowed, will allow you to:
